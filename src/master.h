@@ -17,14 +17,16 @@ class Master {
 
 	private:
 		/* NOW you can add below, data members and member functions as per the need of your implementation*/
+		MapReduceSpec spec_;
+		std::vector<FileShard> shards_;
 
 };
 
 
 /* CS6210_TASK: This is all the information your master will get from the framework.
 	You can populate your other class data members here if you want */
-Master::Master(const MapReduceSpec& mr_spec, const std::vector<FileShard>& file_shards) {
-
+Master::Master(const MapReduceSpec& mr_spec, const std::vector<FileShard>& file_shards)
+	: spec_(mr_spec), shards_(file_shards) {
 }
 
 

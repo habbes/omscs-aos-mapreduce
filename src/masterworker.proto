@@ -1,3 +1,26 @@
 syntax = "proto3";
 
 package masterworker;
+
+service Worker {
+    rpc ExecuteMapJob (MapJobRequest) returns (MapJobReply) {}
+    rpc ExecuteReduceJob (ReduceJobRequest) returns (ReduceJobReply) {}
+}
+
+message MapJobRequest {
+    string file = 1;
+    int32 offsetStart = 2;
+    int32 offsetStop = 3;
+}
+
+message MapJobReply {
+    bool success = 1;
+}
+
+message ReduceJobRequest {
+    string key = 1;
+}
+
+message ReduceJobReply {
+    bool success = 1;
+}

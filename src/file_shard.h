@@ -23,15 +23,10 @@ struct FileShard {
      bool operator==(const FileShard & other) const {
           return this->offsets == other.offsets;
      }
-
-     void reset() {
-          offsets.clear();
-     }
 };
 
 int get_file_size(FILE *file)
 {
-     if (!file) return -1;
      fseek(file, 0, SEEK_END);
      int size = ftell(file);
      fseek(file, 0, SEEK_SET);
@@ -61,6 +56,9 @@ inline bool shard_files(const MapReduceSpec& mr_spec, std::vector<FileShard>& fi
 
      for (const auto filename : mr_spec.input_files) {
           file = fopen(filename.c_str(), "r");
+          if (!file) {
+               return false;
+          }
           auto file_size = get_file_size(file);
           if (current_shard_remaining >= file_size) {
                current_shard.offsets.push_back({.file = filename, .start = 0, .stop = file_size - 1});

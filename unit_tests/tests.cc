@@ -99,6 +99,19 @@ bool test_shard_files_with_one_shard_one_file()
     return true;
 }
 
+bool test_shard_files_with_error()
+{
+    MapReduceSpec spec;
+    spec.map_kilobytes = 200;
+    spec.input_files.push_back("./non_existent_file.txt");
+    std::vector<FileShard> shards;
+    bool result = shard_files(spec, shards);
+
+    TEST(are_equal(result, false), "return false if input files don't exist");
+
+    return true;
+}
+
 int main()
 {
     std::cout << "Running tests..." << std::endl;
@@ -106,6 +119,7 @@ int main()
     RUN_TESTS(test_read_mr_spec_from_config_file);
     RUN_TESTS(test_shard_files);
     RUN_TESTS(test_shard_files_with_one_shard_one_file);
+    RUN_TESTS(test_shard_files_with_error);
 
     std::cout << "All tests passed!" << std::endl;
     
