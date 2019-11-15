@@ -1,7 +1,10 @@
 #pragma once
 
+
 #include "mapreduce_spec.h"
 #include "file_shard.h"
+
+#include "workers_pool.h"
 
 
 /* CS6210_TASK: Handle all the bookkeeping that Master is supposed to do.
@@ -32,5 +35,7 @@ Master::Master(const MapReduceSpec& mr_spec, const std::vector<FileShard>& file_
 
 /* CS6210_TASK: Here you go. once this function is called you will complete whole map reduce task and return true if succeeded */
 bool Master::run() {
+	puts("---Running master---");
+	WorkersPool workers(spec_.worker_ipaddr_ports);
 	return true;
 }

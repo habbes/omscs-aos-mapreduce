@@ -25,7 +25,7 @@ struct FileShard {
      }
 };
 
-int get_file_size(FILE *file)
+inline int get_file_size(FILE *file)
 {
      fseek(file, 0, SEEK_END);
      int size = ftell(file);
@@ -33,7 +33,7 @@ int get_file_size(FILE *file)
      return size;
 }
 
-int get_file_next_boundary(FILE *file, const int pos)
+inline int get_file_next_boundary(FILE *file, const int pos)
 {
      fseek(file, pos, SEEK_SET);
      int boundary_pos = pos;
