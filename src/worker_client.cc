@@ -20,8 +20,9 @@ WorkerStatus WorkerClient::status()
     return status_;
 }
 
-bool WorkerClient::executeMapJob(FileShard & shard)
+bool WorkerClient::executeMapJob(const FileShard & shard)
 {
+    print_shard(shard, "Master: Executing map job");
     status_ = WorkerStatus::BUSY_MAP;
     
     grpc::ClientContext context;

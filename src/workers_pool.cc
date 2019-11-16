@@ -20,3 +20,38 @@ WorkersPool::WorkersPool(const std::vector<std::string> & addresses)
         printf("Master: Connected to worker %s\n", address.c_str());
     }
 }
+
+void WorkersPool::addMapTask(FileShard shard)
+{
+    print_shard(shard, "Master: Add map task");
+    map_queue_.push(shard);
+}
+
+bool WorkersPool::runMapTasks()
+{
+    while (!map_queue_.empty()) {
+        const auto shard = map_queue_.front();
+        map_queue_.pop();
+        auto & worker = getNextWorker();
+        auto result = worker->executeMapJob(shard);
+        if (!result) {
+            print_shard(shard, "Master: map task failed, requeing...");
+            map_queue_.push(shard);
+        } else {
+            print_shard(shard, "Master: completed map task");
+        }
+    }
+    return true;
+}
+
+std::unique_ptr<WorkerClient> & WorkersPool::getNextWorker()
+{
+    while (true) {
+        for (auto & service: services_) {
+            if (service->status() == WorkerStatus::AVAILABLE) {
+                return service;
+            }
+        }
+    }
+    
+}

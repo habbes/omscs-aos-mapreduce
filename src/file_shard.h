@@ -46,6 +46,15 @@ inline int get_file_next_boundary(FILE *file, const int pos)
      return boundary_pos;
 }
 
+inline void print_shard(const FileShard & shard, const std::string & msg)
+{
+     printf("%s Shard:", msg.c_str());
+     for (auto & offset: shard.offsets) {
+          printf(" %s %d-%d,", offset.file.c_str(), offset.start, offset.stop);
+     }
+     printf("\n");
+}
+
 
 /* CS6210_TASK: Create fileshards from the list of input files, map_kilobytes etc. using mr_spec you populated  */ 
 inline bool shard_files(const MapReduceSpec& mr_spec, std::vector<FileShard>& fileShards) {

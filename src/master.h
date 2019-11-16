@@ -35,7 +35,18 @@ Master::Master(const MapReduceSpec& mr_spec, const std::vector<FileShard>& file_
 
 /* CS6210_TASK: Here you go. once this function is called you will complete whole map reduce task and return true if succeeded */
 bool Master::run() {
-	puts("---Running master---");
+	puts("Master: STARTED!");
+	bool result;
 	WorkersPool workers(spec_.worker_ipaddr_ports);
+	printf("Master: Number of map jobs %lu\n", shards_.size());
+	for (const auto & shard : shards_) {
+		workers.addMapTask(shard);
+	}
+	result = workers.runMapTasks();
+	if (!result) {
+		puts("Master: FAILED!");
+		return false;
+	}
+	puts("Master: DONE!");
 	return true;
 }

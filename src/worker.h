@@ -23,10 +23,9 @@ class WorkerService final : public service::Worker::Service {
 	Status ExecuteMapJob(ServerContext *context, const MapJobRequest *request, MapJobReply *reply) override {
 		for (int i = 0; i < request->offsets_size(); i++) {
 			auto offset = request->offsets(i);
-			printf("Worker received shard offset: file %s, start: %d, stop: %d\n",
-				offset.file().c_str(), offset.start(), offset.stop());
 		}
 		reply->set_success(true);
+		return Status::OK;
 	}
 
 	Status ExecuteReduceJob(ServerContext *context, const ReduceJobRequest *request, ReduceJobReply *reply) override {
@@ -84,4 +83,5 @@ bool Worker::run() {
 	printf("Worker listening on %s\n", address_.c_str());
 
 	server->Wait();
+	printf("Worker %s: done\n", address_.c_str());
 }
