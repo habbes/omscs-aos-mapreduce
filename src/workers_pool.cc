@@ -8,9 +8,11 @@
 #include <grpcpp/create_channel.h>
 #include <grpcpp/security/credentials.h>
 
-WorkersPool::WorkersPool(const std::vector<std::string> & addresses)
+WorkersPool::WorkersPool(const MapReduceSpec & spec)
 {
-    for (const auto address : addresses) {
+    n_output_files_ = spec.n_output_files;
+    output_dir_ = spec.output_dir;
+    for (const auto address : spec.worker_ipaddr_ports) {
         std::unique_ptr<WorkerClient> service(
             new WorkerClient(
                 grpc::CreateChannel(address, grpc::InsecureChannelCredentials())
@@ -33,7 +35,7 @@ bool WorkersPool::runMapTasks()
         const auto shard = map_queue_.front();
         map_queue_.pop();
         auto & worker = getNextWorker();
-        auto result = worker->executeMapJob(shard);
+        auto result = worker->executeMapJob(shard, n_output_files_, output_dir_);
         if (!result) {
             print_shard(shard, "Master: map task failed, requeing...");
             map_queue_.push(shard);

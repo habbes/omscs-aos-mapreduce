@@ -19,7 +19,7 @@ class WorkerClient {
 public:
 	WorkerClient(std::shared_ptr<grpc::Channel> channel);
     WorkerStatus status();
-    bool executeMapJob(const FileShard & shard);
+    bool executeMapJob(const FileShard & shard, int n_output_files, const std::string & output_dir);
 
 private:
 	std::unique_ptr<masterworker::Worker::Stub> stub_;

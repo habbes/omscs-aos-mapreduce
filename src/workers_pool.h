@@ -10,7 +10,7 @@
 class WorkersPool
 {
 public:
-    WorkersPool(const std::vector<std::string> & addresses);
+    WorkersPool(const MapReduceSpec & spec);
     void addMapTask(FileShard shard);
     bool runMapTasks();
 private:
@@ -18,4 +18,6 @@ private:
 
     std::vector<std::unique_ptr<WorkerClient>> services_;
     std::queue<FileShard> map_queue_;
+    int n_output_files_;
+    std::string output_dir_;
 };

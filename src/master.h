@@ -37,7 +37,7 @@ Master::Master(const MapReduceSpec& mr_spec, const std::vector<FileShard>& file_
 bool Master::run() {
 	puts("Master: STARTED!");
 	bool result;
-	WorkersPool workers(spec_.worker_ipaddr_ports);
+	WorkersPool workers(spec_);
 	printf("Master: Number of map jobs %lu\n", shards_.size());
 	for (const auto & shard : shards_) {
 		workers.addMapTask(shard);
