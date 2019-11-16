@@ -112,6 +112,39 @@ bool test_shard_files_with_error()
     return true;
 }
 
+bool test_read_shard()
+{
+    FileShard shard;
+    shard.offsets.push_back({
+        .file = "testdata_1.txt",
+        .start = 693,
+        .stop = 876
+    });
+    shard.offsets.push_back({
+        .file = "testdata_2.txt",
+        .start = 0,
+        .stop = 122
+    });
+    std::vector<std::string> lines;
+    read_shard(shard, lines);
+
+    TEST(are_equal((int) lines.size(), 4), "read 4 lines from shard");
+    TEST(are_equal(lines[0], std::string(
+        "eddy starred ballets diet HauptmannHauptmann. Galveston pettifogged potfuls manufacturer."
+    )), "read first line");
+    TEST(are_equal(lines[1], std::string(
+        "unblocking querying watersheds whittling intonederive. unlocked freakier hated Jimenez fraud."
+    )), "read second line");
+    TEST(are_equal(lines[2], std::string(
+        "antihistamines wight dethronement."
+    )), "read third line");
+    TEST(are_equal(lines[3], std::string(
+        "bamboozle chilliest smartening Potemkintempter. respect observable degenerative famish."
+    )), "read fourth line");
+
+    return true;
+}
+
 int main()
 {
     std::cout << "Running tests..." << std::endl;
@@ -120,6 +153,7 @@ int main()
     RUN_TESTS(test_shard_files);
     RUN_TESTS(test_shard_files_with_one_shard_one_file);
     RUN_TESTS(test_shard_files_with_error);
+    RUN_TESTS(test_read_shard);
 
     std::cout << "All tests passed!" << std::endl;
     

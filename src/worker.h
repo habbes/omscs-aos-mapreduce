@@ -3,10 +3,13 @@
 #include <mr_task_factory.h>
 #include "mr_tasks.h"
 
+#include <memory>
 #include <grpc/grpc.h>
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/security/credentials.h>
 #include "masterworker.grpc.pb.h"
+
+#include "file_shard.h"
 
 using grpc::Server;
 using grpc::ServerBuilder;
@@ -20,10 +23,35 @@ using service::ReduceJobRequest;
 using service::ReduceJobReply;
 
 class WorkerService final : public service::Worker::Service {
+public:
+	WorkerService(std::shared_ptr<BaseMapper> mapper) : mapper_(mapper) {
+
+	}
+
 	Status ExecuteMapJob(ServerContext *context, const MapJobRequest *request, MapJobReply *reply) override {
+		FileShard shard;
 		for (int i = 0; i < request->offsets_size(); i++) {
 			auto offset = request->offsets(i);
+			shard.offsets.push_back({
+				.file = offset.file(),
+				.start = offset.start(),
+				.stop = offset.stop()
+			});
 		}
+		print_shard(shard, "Worker: received map job");
+
+		std::vector<std::string> records;
+		bool result = read_shard(shard, records);
+		if (!result) {
+			print_shard(shard, "Worker: FAILED to read shard");
+			reply->set_success(false);
+			return Status::CANCELLED;
+		}
+
+		for (const auto & record : records) {
+			mapper_->map(record);
+		}
+		
 		reply->set_success(true);
 		return Status::OK;
 	}
@@ -31,6 +59,8 @@ class WorkerService final : public service::Worker::Service {
 	Status ExecuteReduceJob(ServerContext *context, const ReduceJobRequest *request, ReduceJobReply *reply) override {
 
 	}
+private:
+	std::shared_ptr<BaseMapper> mapper_;
 };
 
 /* CS6210_TASK: Handle all the task a Worker is supposed to do.
@@ -73,7 +103,8 @@ bool Worker::run() {
 	// auto reducer = get_reducer_from_task_factory("cs6210");
 	// reducer->reduce("dummy", std::vector<std::string>({"1", "1"}));
 	// return true;
-	WorkerService service;
+	auto mapper = get_mapper_from_task_factory("cs6210");
+	WorkerService service(mapper);
 	ServerBuilder builder;
 
 	builder.AddListeningPort(address_, grpc::InsecureServerCredentials());

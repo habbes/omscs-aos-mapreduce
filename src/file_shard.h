@@ -1,6 +1,8 @@
 #pragma once
 
 #include <string>
+#include <sstream>
+#include <memory>
 #include <vector>
 #include <cstdio>
 #include "mapreduce_spec.h"
@@ -96,4 +98,32 @@ inline bool shard_files(const MapReduceSpec& mr_spec, std::vector<FileShard>& fi
           fileShards.push_back(std::move(current_shard));
      }
 	return true;
+}
+
+
+
+inline bool read_shard(const FileShard & shard, std::vector<std::string> & out_lines)
+{
+     for (auto & offset : shard.offsets) {
+          int size = offset.stop - offset.start + 1;
+          std::unique_ptr<char> buffer(new char[size + 1]);
+          FILE * file = fopen(offset.file.c_str(), "r");
+          if (!file) {
+               return false;
+          }
+          fseek(file, offset.start, SEEK_SET);
+          int size_read = fread(buffer.get(), sizeof(char), size, file);
+          if (size_read != size) {
+               return false;
+          }
+          buffer.get()[size_read] = '\0';
+          std::string string_buffer(buffer.get());
+          std::istringstream stream(string_buffer);
+          std::string line;
+          while (std::getline(stream, line)) {
+               out_lines.push_back(line);
+          }
+          fclose(file);
+     }
+     return true;
 }
