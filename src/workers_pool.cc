@@ -17,5 +17,6 @@ WorkersPool::WorkersPool(const std::vector<std::string> & addresses)
             )
         );
         services_.push_back(std::move(service));
+        printf("Master: Connected to worker %s\n", address.c_str());
     }
 }

@@ -8,10 +8,15 @@ service Worker {
 }
 
 message MapJobRequest {
-    string file = 1;
-    int32 offsetStart = 2;
-    int32 offsetStop = 3;
+    message FileOffset {
+        string file = 1;
+        int32 start = 2;
+        int32 stop = 3;
+    }
+
+    repeated FileOffset offsets = 1;
 }
+
 
 message MapJobReply {
     bool success = 1;

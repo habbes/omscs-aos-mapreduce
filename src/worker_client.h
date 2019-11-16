@@ -2,16 +2,11 @@
 
 #include <memory>
 #include <grpc/grpc.h>
-// #include <grpcpp/server.h>
-// #include <grpcpp/server_builder.h>
-// #include <grpcpp/server_context.h>
 #include <grpcpp/channel.h>
-// #include <grpcpp/client_context.h>
-// #include <grpcpp/create_channel.h>
-// #include <grpcpp/security/credentials.h>
 
 #include "masterworker.grpc.pb.h"
 #include "masterworker.pb.h"
+#include "file_shard.h"
 
 enum WorkerStatus {
     BUSY_MAP,
@@ -24,6 +19,7 @@ class WorkerClient {
 public:
 	WorkerClient(std::shared_ptr<grpc::Channel> channel);
     WorkerStatus status();
+    bool executeMapJob(FileShard & shard);
 
 private:
 	std::unique_ptr<masterworker::Worker::Stub> stub_;
