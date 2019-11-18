@@ -41,12 +41,11 @@ class Worker : public service::Worker::Service {
 		
 	private:
 		/* NOW you can add below, data members and member functions as per the need of your implementation*/
-		bool handleShard(const FileShard & shard, int n_output_files,
-			const std::string & output_dir, std::unordered_set<std::string> & result_files);
-		bool writeMapperResults(std::shared_ptr<BaseMapper> mapper, int n_output_files,
-			const std::string & output_dir, std::unordered_set<std::string> & result_files);
-		std::string getMapperResultsFilename(const std::string & key, int n_output_files,
-			const std::string & output_dir);
+		bool handleShard(const FileShard & shard, const MapJobRequest *request,
+			std::unordered_set<std::string> & result_files);
+		bool writeMapperResults(std::shared_ptr<BaseMapper> mapper, const MapJobRequest *request,
+			std::unordered_set<std::string> & result_files);
+		std::string getMapperResultsFilename(const std::string & key, const MapJobRequest *request);
 
 
 		std::string address_;
@@ -111,7 +110,7 @@ Status Worker::ExecuteMapJob(ServerContext *context, const MapJobRequest *reques
 	}
 	print_shard(shard, "Worker: received map job");
 	std::unordered_set<std::string> result_files;
-	bool result = handleShard(shard, request->n_output_files(), request->output(), result_files);
+	bool result = handleShard(shard, request, result_files);
 	if (!result) {
 		print_shard(shard, "Worker: FAILED to read shard");
 		reply->set_success(false);
@@ -132,7 +131,7 @@ Status Worker::ExecuteReduceJob(ServerContext *context, const ReduceJobRequest *
 }
 
 bool Worker::handleShard(
-	const FileShard & shard, int n_output_files, const std::string & output_dir,
+	const FileShard & shard, const MapJobRequest *request,
 	std::unordered_set<std::string> & result_files)
 {
 	auto mapper = get_mapper_from_task_factory("cs6210");
@@ -144,7 +143,7 @@ bool Worker::handleShard(
 		mapper->map(record);
 	}
 
-	return writeMapperResults(mapper, n_output_files, output_dir,
+	return writeMapperResults(mapper, request,
 		result_files);
 
 	return true;
@@ -158,7 +157,7 @@ inline void close_open_files(std::unordered_map<std::string, FILE *> & open_file
 }
 
 bool Worker::writeMapperResults(
-	std::shared_ptr<BaseMapper> mapper, int n_output_files, const std::string & output_dir,
+	std::shared_ptr<BaseMapper> mapper, const MapJobRequest *request,
 	std::unordered_set<std::string> & result_files)
 {
 	auto & mapped_values = mapper->impl_->emitted_values_;
@@ -166,7 +165,7 @@ bool Worker::writeMapperResults(
 	std::unordered_map<std::string, FILE *> open_files;
 	FILE *file;
 	for (auto & item : mapped_values) {
-		filename = getMapperResultsFilename(item.first, n_output_files, output_dir);
+		filename = getMapperResultsFilename(item.first, request);
 		auto file_item = open_files.find(filename);
 		if (file_item == open_files.end()) {
 			file = fopen(filename.c_str(), "w");
@@ -191,10 +190,15 @@ bool Worker::writeMapperResults(
 	return true;
 }
 
-std::string Worker::getMapperResultsFilename(const std::string & key, int n_output_files, const std::string & output_dir)
+std::string Worker::getMapperResultsFilename(const std::string & key, const MapJobRequest *request)
 {
 	std::hash<std::string> hash;
-	int prefix = hash(key) % n_output_files;
-	std::string filename = output_dir + "/" + std::to_string(prefix) + "_" + worker_id_ + "_temp.txt";
+	int prefix = hash(key) % request->n_output_files();
+	std::string filename =
+		request->output_dir() + "/"
+		+ std::to_string(prefix) + "_"
+		+ std::to_string(request->job_id()) + "_"
+		+ worker_id_
+		+ "_temp.txt";
 	return filename;
 }

@@ -10,6 +10,7 @@
 
 WorkersPool::WorkersPool(const MapReduceSpec & spec)
 {
+    next_task_id_ = 1;
     n_output_files_ = spec.n_output_files;
     output_dir_ = spec.output_dir;
     for (const auto address : spec.worker_ipaddr_ports) {
@@ -25,22 +26,23 @@ WorkersPool::WorkersPool(const MapReduceSpec & spec)
 
 void WorkersPool::addMapTask(FileShard shard)
 {
+    MapJob task = { next_task_id_++, shard };
     print_shard(shard, "Master: Add map task");
-    map_queue_.push(shard);
+    map_queue_.push(task);
 }
 
 bool WorkersPool::runMapTasks()
 {
     while (!map_queue_.empty()) {
-        const auto shard = map_queue_.front();
+        const auto task = map_queue_.front();
         map_queue_.pop();
         auto & worker = getNextWorker();
-        auto result = worker->executeMapJob(shard, n_output_files_, output_dir_, &intermediate_files_);
+        auto result = worker->executeMapJob(task, n_output_files_, output_dir_, &intermediate_files_);
         if (!result) {
-            print_shard(shard, "Master: map task failed, requeing...");
-            map_queue_.push(shard);
+            print_shard(task.shard, "Master: map task failed, requeing...");
+            map_queue_.push(task);
         } else {
-            print_shard(shard, "Master: completed map task");
+            print_shard(task.shard, "Master: completed map task");
         }
     }
     printf("Master: Map tasks complete, intermediate files generated:\n");

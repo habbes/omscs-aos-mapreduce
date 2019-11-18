@@ -17,7 +17,8 @@ private:
     std::unique_ptr<WorkerClient> & getNextWorker();
 
     std::vector<std::unique_ptr<WorkerClient>> services_;
-    std::queue<FileShard> map_queue_;
+    int next_task_id_;
+    std::queue<MapJob> map_queue_;
     int n_output_files_;
     std::string output_dir_;
     std::vector<std::string> intermediate_files_;

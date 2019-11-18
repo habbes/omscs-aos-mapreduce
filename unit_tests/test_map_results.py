@@ -12,6 +12,9 @@ from pprint import pprint
 def get_words_from_line(line):
     return list(filter(lambda x: x, re.split(r"[\s,.\"']+", line)))
 
+def get_file_keys(filenames):
+    return set(map(lambda f: f.split('_')[0], filenames))
+
 def count_words_from_input_files(input_dir, pattern):
     files = filter(lambda f: f.find(pattern) >= 0, os.listdir(input_dir))
     words = Counter()
@@ -23,16 +26,21 @@ def count_words_from_input_files(input_dir, pattern):
     return words
 
 def count_words_from_output_files(output_dir):
-    files = filter(lambda f: f.endswith("_temp.txt"), os.listdir(output_dir))
-    all_words = []
+    files = list(filter(lambda f: f.endswith("_temp.txt"), os.listdir(output_dir)))
+    keys = get_file_keys(files)
+    # combine counts from files with the same key
+    counters = {}
+    for key in keys:
+        counters[key] = Counter()
+
     for filename in files:
-        file_words = Counter()
+        file_key = filename.split('_')[0]
+        file_counter = counters[file_key]
         with open(os.path.join(output_dir, filename), "r") as file:
             lines = file.readlines()
         for line in lines:
-            file_words[get_words_from_line(line)[0]] += 1
-        all_words.append(file_words)
-    return all_words
+            file_counter[get_words_from_line(line.strip())[0]] += 1
+    return list(counters.values())
 
 def combine_word_counters(words_counters):
     combined_counter = Counter()
@@ -50,8 +58,8 @@ def test_no_word_in_multiple_files(word_counters):
 
 def test_word_counts_are_correct(input_words, output_word_lists):
     combined_output_words = combine_word_counters(output_word_lists)
-    pprint(input_words)
-    pprint(combined_output_words)
+    # pprint(input_words)
+    # pprint(combined_output_words)
     assert input_words == combined_output_words, "word counts do not match expected results"
 
 

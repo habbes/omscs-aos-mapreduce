@@ -20,9 +20,10 @@ WorkerStatus WorkerClient::status()
     return status_;
 }
 
-bool WorkerClient::executeMapJob(const FileShard & shard, int n_output_files,
+bool WorkerClient::executeMapJob(const MapJob & job, int n_output_files,
     const std::string & output_dir, std::vector<std::string> *intermediate_files)
 {
+    auto & shard = job.shard;
     print_shard(shard, "Master: Executing map job");
     status_ = WorkerStatus::BUSY_MAP;
     
@@ -30,8 +31,9 @@ bool WorkerClient::executeMapJob(const FileShard & shard, int n_output_files,
     MapJobRequest request;
     MapJobReply reply;
     
+    request.set_job_id(job.job_id);
     request.set_n_output_files(n_output_files);
-    request.set_output(output_dir);
+    request.set_output_dir(output_dir);
     for (const auto & offset: shard.offsets) {
         auto request_offset = request.add_offsets();
         request_offset->set_file(offset.file);
