@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 
 # this program verifies implementation of the map operation by checking
-# the output results from the test/input/simple_data_* input files
+# the output results (intermediate_files) of the mappers against the input files
 
 import os
 import sys

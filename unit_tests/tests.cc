@@ -15,7 +15,7 @@ inline bool are_equal(T actual, T expected)
     return true;
 }
 
-#define RUN_TESTS(fn) if (!(fn())) return false;
+#define RUN_TESTS(fn) if (!(fn())) return EXIT_FAILURE;
 
 bool test_read_mr_spec_from_config_file()
 {
