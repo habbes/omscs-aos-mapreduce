@@ -35,13 +35,17 @@ bool WorkersPool::runMapTasks()
         const auto shard = map_queue_.front();
         map_queue_.pop();
         auto & worker = getNextWorker();
-        auto result = worker->executeMapJob(shard, n_output_files_, output_dir_);
+        auto result = worker->executeMapJob(shard, n_output_files_, output_dir_, &intermediate_files_);
         if (!result) {
             print_shard(shard, "Master: map task failed, requeing...");
             map_queue_.push(shard);
         } else {
             print_shard(shard, "Master: completed map task");
         }
+    }
+    printf("Master: Map tasks complete, intermediate files generated:\n");
+    for (auto & file: intermediate_files_) {
+        printf("file: %s\n", file.c_str());
     }
     return true;
 }

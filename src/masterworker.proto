@@ -22,6 +22,7 @@ message MapJobRequest {
 
 message MapJobReply {
     bool success = 1;
+    repeated string intermediate_files = 2;
 }
 
 message ReduceJobRequest {

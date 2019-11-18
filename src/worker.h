@@ -5,6 +5,7 @@
 
 #include <cstdio>
 #include <memory>
+#include <unordered_set>
 #include <grpc/grpc.h>
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/security/credentials.h>
@@ -23,46 +24,6 @@ using service::MapJobReply;
 using service::ReduceJobRequest;
 using service::ReduceJobReply;
 
-class WorkerService final : public service::Worker::Service {
-public:
-	WorkerService(std::shared_ptr<BaseMapper> mapper) : mapper_(mapper) {
-
-	}
-
-	Status ExecuteMapJob(ServerContext *context, const MapJobRequest *request, MapJobReply *reply) override {
-		FileShard shard;
-		for (int i = 0; i < request->offsets_size(); i++) {
-			auto offset = request->offsets(i);
-			shard.offsets.push_back({
-				.file = offset.file(),
-				.start = offset.start(),
-				.stop = offset.stop()
-			});
-		}
-		print_shard(shard, "Worker: received map job");
-
-		std::vector<std::string> records;
-		bool result = read_shard(shard, records);
-		if (!result) {
-			print_shard(shard, "Worker: FAILED to read shard");
-			reply->set_success(false);
-			return Status::CANCELLED;
-		}
-
-		for (const auto & record : records) {
-			mapper_->map(record);
-		}
-		
-		reply->set_success(true);
-		return Status::OK;
-	}
-
-	Status ExecuteReduceJob(ServerContext *context, const ReduceJobRequest *request, ReduceJobReply *reply) override {
-
-	}
-private:
-	std::shared_ptr<BaseMapper> mapper_;
-};
 
 /* CS6210_TASK: Handle all the task a Worker is supposed to do.
 	This is a big task for this project, will test your understanding of map reduce */
@@ -81,9 +42,9 @@ class Worker : public service::Worker::Service {
 	private:
 		/* NOW you can add below, data members and member functions as per the need of your implementation*/
 		bool handleShard(const FileShard & shard, int n_output_files,
-			const std::string & output_dir);
+			const std::string & output_dir, std::unordered_set<std::string> & result_files);
 		bool writeMapperResults(std::shared_ptr<BaseMapper> mapper, int n_output_files,
-			const std::string & output_dir);
+			const std::string & output_dir, std::unordered_set<std::string> & result_files);
 		std::string getMapperResultsFilename(const std::string & key, int n_output_files,
 			const std::string & output_dir);
 
@@ -149,8 +110,8 @@ Status Worker::ExecuteMapJob(ServerContext *context, const MapJobRequest *reques
 		});
 	}
 	print_shard(shard, "Worker: received map job");
-
-	bool result = handleShard(shard, request->n_output_files(), request->output());
+	std::unordered_set<std::string> result_files;
+	bool result = handleShard(shard, request->n_output_files(), request->output(), result_files);
 	if (!result) {
 		print_shard(shard, "Worker: FAILED to read shard");
 		reply->set_success(false);
@@ -158,6 +119,10 @@ Status Worker::ExecuteMapJob(ServerContext *context, const MapJobRequest *reques
 	}
 
 	reply->set_success(true);
+	for (auto & file: result_files) {
+		auto interm_file = reply->add_intermediate_files();
+		*interm_file = file;
+	}
 	return Status::OK;
 }
 
@@ -166,7 +131,9 @@ Status Worker::ExecuteReduceJob(ServerContext *context, const ReduceJobRequest *
 
 }
 
-bool Worker::handleShard(const FileShard & shard, int n_output_files, const std::string & output_dir)
+bool Worker::handleShard(
+	const FileShard & shard, int n_output_files, const std::string & output_dir,
+	std::unordered_set<std::string> & result_files)
 {
 	auto mapper = get_mapper_from_task_factory("cs6210");
 	std::vector<std::string> records;
@@ -177,7 +144,8 @@ bool Worker::handleShard(const FileShard & shard, int n_output_files, const std:
 		mapper->map(record);
 	}
 
-	return writeMapperResults(mapper, n_output_files, output_dir);
+	return writeMapperResults(mapper, n_output_files, output_dir,
+		result_files);
 
 	return true;
 }
@@ -189,7 +157,9 @@ inline void close_open_files(std::unordered_map<std::string, FILE *> & open_file
 	}
 }
 
-bool Worker::writeMapperResults(std::shared_ptr<BaseMapper> mapper, int n_output_files, const std::string & output_dir)
+bool Worker::writeMapperResults(
+	std::shared_ptr<BaseMapper> mapper, int n_output_files, const std::string & output_dir,
+	std::unordered_set<std::string> & result_files)
 {
 	auto & mapped_values = mapper->impl_->emitted_values_;
 	std::string filename;
@@ -212,7 +182,9 @@ bool Worker::writeMapperResults(std::shared_ptr<BaseMapper> mapper, int n_output
 		fwrite(" ", sizeof(char), 1, file);
 		fwrite(item.second.c_str(), sizeof(char), item.second.size(), file);
 		fwrite("\n", sizeof(char), 1, file);
+		result_files.insert(filename);
 	}
+
 
 	close_open_files(open_files);
 

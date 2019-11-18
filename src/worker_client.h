@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 #include <grpc/grpc.h>
 #include <grpcpp/channel.h>
 
@@ -19,7 +20,10 @@ class WorkerClient {
 public:
 	WorkerClient(std::shared_ptr<grpc::Channel> channel);
     WorkerStatus status();
-    bool executeMapJob(const FileShard & shard, int n_output_files, const std::string & output_dir);
+    // when I defined the method with intermediate_files as vector reference type instead of pointer
+    // I got errors when compiling the program, "undefined reference" to the function that was using it
+    bool executeMapJob(const FileShard & shard, int n_output_files, const std::string & output_dir,
+        std::vector<std::string> *intermediate_files);
 
 private:
 	std::unique_ptr<masterworker::Worker::Stub> stub_;

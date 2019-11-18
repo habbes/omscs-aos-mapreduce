@@ -20,4 +20,5 @@ private:
     std::queue<FileShard> map_queue_;
     int n_output_files_;
     std::string output_dir_;
+    std::vector<std::string> intermediate_files_;
 };

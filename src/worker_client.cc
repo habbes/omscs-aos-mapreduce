@@ -20,7 +20,8 @@ WorkerStatus WorkerClient::status()
     return status_;
 }
 
-bool WorkerClient::executeMapJob(const FileShard & shard, int n_output_files, const std::string & output_dir)
+bool WorkerClient::executeMapJob(const FileShard & shard, int n_output_files,
+    const std::string & output_dir, std::vector<std::string> *intermediate_files)
 {
     print_shard(shard, "Master: Executing map job");
     status_ = WorkerStatus::BUSY_MAP;
@@ -42,6 +43,20 @@ bool WorkerClient::executeMapJob(const FileShard & shard, int n_output_files, co
 
     status_ = WorkerStatus::AVAILABLE;
 
-    return request_status.ok();
+    if (!request_status.ok()) {
+        printf("----Task failed from Status\n");
+        return false;
+    }
+
+    if (!reply.success()) {
+        printf("----Task failed from No Success\n");
+        return false;
+    }
+
+    for (int i = 0; i < reply.intermediate_files_size(); i++) {
+        intermediate_files->push_back(reply.intermediate_files(i));
+    }
+
+    return true;
 }
 
