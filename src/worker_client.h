@@ -22,6 +22,13 @@ struct MapJob
     FileShard shard;
 };
 
+struct ReduceJob
+{
+    int job_id;
+    int n_output_files;
+    std::vector<std::string> intermediate_files;
+};
+
 class WorkerClient {
 public:
 	WorkerClient(std::shared_ptr<grpc::Channel> channel);

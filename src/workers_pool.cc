@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <algorithm>
 #include <grpc/grpc.h>
 #include <grpcpp/channel.h>
 #include <grpcpp/create_channel.h>
@@ -52,6 +53,11 @@ bool WorkersPool::runMapTasks()
     return true;
 }
 
+bool WorkersPool::runReduceTasks()
+{
+    return true;
+}
+
 std::unique_ptr<WorkerClient> & WorkersPool::getNextWorker()
 {
     while (true) {
@@ -62,4 +68,21 @@ std::unique_ptr<WorkerClient> & WorkersPool::getNextWorker()
         }
     }
     
+}
+
+void WorkersPool::prepareReduceJobs()
+{
+    ReduceJob job;
+    for (int i = 0; i < n_output_files_; i++)
+    {
+        job.job_id = i + 1;
+        job.n_output_files = n_output_files_;
+        for (auto & file: intermediate_files_) {
+            std::string file_key = std::to_string(i);
+            if (file.find(file_key) == 0) {
+                job.intermediate_files.push_back(file);
+            }
+        }
+        reduce_queue_.push(job);
+    }
 }
