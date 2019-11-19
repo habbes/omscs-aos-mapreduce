@@ -251,7 +251,7 @@ bool Worker::readFilesToReduce(const ReduceJobRequest *request, std::vector<key_
 		}
 	}
 	auto comparer = [](std::pair<std::string, std::string> & left, std::pair<std::string, std::string> & right) {
-		return left.first < left.second;
+		return left.first < right.first;
 	};
 	std::sort(key_value_pairs.begin(), key_value_pairs.end(), comparer);
 	return true;
