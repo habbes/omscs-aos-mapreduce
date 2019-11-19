@@ -14,9 +14,9 @@ public:
     void addMapTask(FileShard shard);
     bool runMapTasks();
     bool runReduceTasks();
+    void prepareReduceJobs();
 private:
     std::unique_ptr<WorkerClient> & getNextWorker();
-    void prepareReduceJobs();
 
     std::vector<std::unique_ptr<WorkerClient>> services_;
     int next_task_id_;
@@ -25,4 +25,5 @@ private:
     std::string output_dir_;
     std::vector<std::string> intermediate_files_;
     std::queue<ReduceJob> reduce_queue_;
+    std::vector<std::string> output_files_;
 };

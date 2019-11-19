@@ -8,6 +8,8 @@
 using masterworker::Worker;
 using masterworker::MapJobRequest;
 using masterworker::MapJobReply;
+using masterworker::ReduceJobRequest;
+using masterworker::ReduceJobReply;
 
 WorkerClient::WorkerClient(std::shared_ptr<grpc::Channel> channel)
     : stub_(Worker::NewStub(channel))
@@ -62,3 +64,36 @@ bool WorkerClient::executeMapJob(const MapJob & job, int n_output_files,
     return true;
 }
 
+bool WorkerClient::executeReduceJob(const ReduceJob & job, std::vector<std::string> * output_files)
+{
+    printf("Master: Executing reduce job %d\n", job.job_id);
+    status_ = WorkerStatus::BUSY_REDUCE;
+
+    grpc::ClientContext context;
+    ReduceJobRequest request;
+    ReduceJobReply reply;
+
+    request.set_key(std::to_string(job.job_id));
+    for (auto file: job.intermediate_files) {
+        auto request_file = request.add_intermediate_files();
+        *request_file = file;
+    }
+    
+    grpc::Status request_status = stub_->ExecuteReduceJob(&context, request, &reply);
+
+    status_ = WorkerStatus::AVAILABLE;
+
+    if (!request_status.ok()) {
+        printf("---- Reduce Task failed from Status\n");
+        return false;
+    }
+
+    if (!reply.success()) {
+        printf("----Reduce Task failed from No Success\n");
+        return false;
+    }
+
+    output_files->push_back(reply.output_file());
+
+    return true;
+}

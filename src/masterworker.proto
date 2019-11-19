@@ -28,8 +28,10 @@ message MapJobReply {
 
 message ReduceJobRequest {
     string key = 1;
+    repeated string intermediate_files = 2;
 }
 
 message ReduceJobReply {
     bool success = 1;
+    string output_file = 2;
 }

@@ -55,6 +55,22 @@ bool WorkersPool::runMapTasks()
 
 bool WorkersPool::runReduceTasks()
 {
+    while (!reduce_queue_.empty()) {
+        const auto task = reduce_queue_.front();
+        reduce_queue_.pop();
+        auto & worker = getNextWorker();
+        auto result = worker->executeReduceJob(task, &output_files_);
+        if (!result) {
+            printf("Master: reduce task %d failed, requeueing...\n", task.job_id);
+            reduce_queue_.push(task);
+        } else {
+            printf("Master: completed reduce task %d\n", task.job_id);
+        }
+    }
+    printf("Master: Reduce tasks complete, intermediate files generated:\n");
+    for (auto & file: output_files_) {
+        printf("file: %s\n", file.c_str());
+    }
     return true;
 }
 

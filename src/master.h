@@ -47,6 +47,7 @@ bool Master::run() {
 		puts("Master: FAILED map tasks!");
 		return false;
 	}
+	workers.prepareReduceJobs();
 	result = workers.runReduceTasks();
 	if (!result) {
 		puts("Master: FAILED reduce tasks!");

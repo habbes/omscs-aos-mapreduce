@@ -37,6 +37,7 @@ public:
     // I got errors when compiling the program, "undefined reference" to the function that was using it
     bool executeMapJob(const MapJob & job, int n_output_files, const std::string & output_dir,
         std::vector<std::string> *intermediate_files);
+    bool executeReduceJob(const ReduceJob & job, std::vector<std::string> *output_files);
 
 private:
 	std::unique_ptr<masterworker::Worker::Stub> stub_;
