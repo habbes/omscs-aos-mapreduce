@@ -29,6 +29,7 @@ message MapJobReply {
 message ReduceJobRequest {
     string key = 1;
     repeated string intermediate_files = 2;
+    string output_dir = 3;
 }
 
 message ReduceJobReply {

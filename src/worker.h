@@ -5,7 +5,9 @@
 
 #include <cstdio>
 #include <memory>
+#include <utility>
 #include <unordered_set>
+#include <algorithm>
 #include <grpc/grpc.h>
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/security/credentials.h>
@@ -24,6 +26,8 @@ using service::MapJobReply;
 using service::ReduceJobRequest;
 using service::ReduceJobReply;
 
+typedef std::pair<std::string, std::string> key_value_pair_t;
+
 
 /* CS6210_TASK: Handle all the task a Worker is supposed to do.
 	This is a big task for this project, will test your understanding of map reduce */
@@ -41,12 +45,17 @@ class Worker : public service::Worker::Service {
 		
 	private:
 		/* NOW you can add below, data members and member functions as per the need of your implementation*/
-		bool handleShard(const FileShard & shard, const MapJobRequest *request,
+		bool handleMapShard(const FileShard & shard, const MapJobRequest *request,
 			std::unordered_set<std::string> & result_files);
 		bool writeMapperResults(std::shared_ptr<BaseMapper> mapper, const MapJobRequest *request,
 			std::unordered_set<std::string> & result_files);
 		std::string getMapperResultsFilename(const std::string & key, const MapJobRequest *request);
-
+		bool readFilesToReduce(const ReduceJobRequest *request,
+			std::vector<key_value_pair_t> & key_value_pairs);
+		bool handleReduceKeyValuePairs(const ReduceJobRequest *request,
+			std::vector<key_value_pair_t> & key_value_pairs, std::string & output_file);
+		bool writeReducerResults(std::shared_ptr<BaseReducer> reducer, const ReduceJobRequest *request,
+			std::string & output_file);
 
 		std::string address_;
 		std::string worker_id_;
@@ -110,7 +119,7 @@ Status Worker::ExecuteMapJob(ServerContext *context, const MapJobRequest *reques
 	}
 	print_shard(shard, "Worker: received map job");
 	std::unordered_set<std::string> result_files;
-	bool result = handleShard(shard, request, result_files);
+	bool result = handleMapShard(shard, request, result_files);
 	if (!result) {
 		print_shard(shard, "Worker: FAILED to read shard");
 		reply->set_success(false);
@@ -127,10 +136,26 @@ Status Worker::ExecuteMapJob(ServerContext *context, const MapJobRequest *reques
 
 Status Worker::ExecuteReduceJob(ServerContext *context, const ReduceJobRequest *request, ReduceJobReply *reply)
 {
+	printf("Worker: received reduce job %s\n", request->key().c_str());
+	std::vector<key_value_pair_t> key_value_pairs;
+	std::string output_file;
 
+	auto result = readFilesToReduce(request, key_value_pairs)
+		&& handleReduceKeyValuePairs(request, key_value_pairs, output_file);
+
+	if (!result) {
+		reply->set_success(false);
+		return Status::CANCELLED;
+	}
+	printf("Worker: completed reduce job %s, key val pairs %d, output %s\n",
+		request->key().c_str(), (int)key_value_pairs.size(), output_file.c_str());
+
+	reply->set_output_file(output_file);
+	reply->set_success(true);
+	return Status::OK;
 }
 
-bool Worker::handleShard(
+bool Worker::handleMapShard(
 	const FileShard & shard, const MapJobRequest *request,
 	std::unordered_set<std::string> & result_files)
 {
@@ -201,4 +226,80 @@ std::string Worker::getMapperResultsFilename(const std::string & key, const MapJ
 		+ worker_id_
 		+ "_temp.txt";
 	return filename;
+}
+
+bool Worker::readFilesToReduce(const ReduceJobRequest *request, std::vector<key_value_pair_t> & key_value_pairs)
+{
+	std::string line;
+	std::string filename;
+	for (int i = 0; i < request->intermediate_files_size(); i++) {
+		filename = request->intermediate_files(i);
+		std::ifstream stream(filename);
+		printf("FILE NAME %s\n", filename.c_str());
+
+		while (std::getline(stream, line)) {
+			if (line.size() == 0) continue; // skip blank lines
+			int space_pos = line.find(' ');
+			if (space_pos == std::string::npos) {
+				// invalid file
+				return false;
+			}
+			std::string key = line.substr(0, space_pos);
+			std::string value = line.substr(space_pos + 1);
+			printf("-- job %s: key %s, val %s\n", request->key().c_str(), key.c_str(), value.c_str());
+			key_value_pairs.push_back(std::make_pair(key, value));
+		}
+	}
+	auto comparer = [](std::pair<std::string, std::string> & left, std::pair<std::string, std::string> & right) {
+		return left.first < left.second;
+	};
+	std::sort(key_value_pairs.begin(), key_value_pairs.end(), comparer);
+	return true;
+}
+
+bool Worker::handleReduceKeyValuePairs(const ReduceJobRequest *request, std::vector<key_value_pair_t> & key_value_pairs, std::string & output_file)
+{
+	if (key_value_pairs.empty()) {
+		return true;
+	}
+
+	std::string cur_key = key_value_pairs.at(0).first;
+	std::vector<std::string> cur_values;
+	auto reducer = get_reducer_from_task_factory("cs6210");
+
+	
+	for (auto & pair: key_value_pairs) {
+		if (pair.first != cur_key) {
+			reducer->reduce(cur_key, cur_values);
+			cur_key = pair.first;
+			cur_values.clear();
+		}
+		cur_values.push_back(pair.second);
+	}
+
+	return writeReducerResults(reducer, request, output_file);
+}
+
+bool Worker::writeReducerResults(std::shared_ptr<BaseReducer> reducer, const ReduceJobRequest *request, std::string & output_file)
+{
+	output_file = request->output_dir()
+		+ std::string("/")
+		+ "result_"
+		+ request->key()
+		+ ".txt";
+	
+	FILE *file = fopen(output_file.c_str(), "w");
+	if (!file) {
+		return false;
+	}
+
+	for (auto & result : reducer->impl_->emitted_values_) {
+		fwrite(result.first.c_str(), sizeof(char), result.first.size(), file);
+		fwrite(" ", sizeof(char), 1, file);
+		fwrite(result.second.c_str(), sizeof(char), result.second.size(), file);
+		fwrite("\n", sizeof(char), 1, file);
+	}
+	
+	fclose(file);
+	return true;
 }

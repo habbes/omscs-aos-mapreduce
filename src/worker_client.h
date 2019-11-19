@@ -26,6 +26,7 @@ struct ReduceJob
 {
     int job_id;
     int n_output_files;
+    std::string output_dir;
     std::vector<std::string> intermediate_files;
 };
 

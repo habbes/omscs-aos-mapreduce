@@ -93,9 +93,11 @@ void WorkersPool::prepareReduceJobs()
     {
         job.job_id = i + 1;
         job.n_output_files = n_output_files_;
+        job.output_dir = output_dir_;
         for (auto & file: intermediate_files_) {
             std::string file_key = std::to_string(i);
-            if (file.find(file_key) == 0) {
+            std::string file_prefix = output_dir_ + std::string("/") + file_key;
+            if (file.find(file_prefix) == 0) {
                 job.intermediate_files.push_back(file);
             }
         }

@@ -74,9 +74,11 @@ bool WorkerClient::executeReduceJob(const ReduceJob & job, std::vector<std::stri
     ReduceJobReply reply;
 
     request.set_key(std::to_string(job.job_id));
+    request.set_output_dir(job.output_dir);
     for (auto file: job.intermediate_files) {
         auto request_file = request.add_intermediate_files();
         *request_file = file;
+        printf("FILE TO RED %s, %s\n", file.c_str(), request_file->c_str());
     }
     
     grpc::Status request_status = stub_->ExecuteReduceJob(&context, request, &reply);
