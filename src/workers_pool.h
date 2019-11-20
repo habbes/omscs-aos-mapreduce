@@ -23,6 +23,7 @@ private:
     std::queue<MapJob> map_queue_;
     int n_output_files_;
     std::string output_dir_;
+    std::string user_id_;
     std::vector<std::string> intermediate_files_;
     std::queue<ReduceJob> reduce_queue_;
     std::vector<std::string> output_files_;

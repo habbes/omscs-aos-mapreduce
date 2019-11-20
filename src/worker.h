@@ -82,16 +82,6 @@ extern std::shared_ptr<BaseReducer> get_reducer_from_task_factory(const std::str
 	BaseReduer's member BaseReducerInternal impl_ directly, 
 	so you can manipulate them however you want when running map/reduce tasks*/
 bool Worker::run() {
-	/*  Below 5 lines are just examples of how you will call map and reduce
-		Remove them once you start writing your own logic */ 
-	// std::cout << "worker.run(), I 'm not ready yet" <<std::endl;
-	// auto mapper = get_mapper_from_task_factory("cs6210");
-	// mapper->map("I m just a 'dummy', a \"dummy line\"");
-	// auto reducer = get_reducer_from_task_factory("cs6210");
-	// reducer->reduce("dummy", std::vector<std::string>({"1", "1"}));
-	// return true;
-	
-	// WorkerService service(mapper);
 	ServerBuilder builder;
 
 	builder.AddListeningPort(address_, grpc::InsecureServerCredentials());
@@ -159,7 +149,7 @@ bool Worker::handleMapShard(
 	const FileShard & shard, const MapJobRequest *request,
 	std::unordered_set<std::string> & result_files)
 {
-	auto mapper = get_mapper_from_task_factory("cs6210");
+	auto mapper = get_mapper_from_task_factory(request->user_id());
 	std::vector<std::string> records;
 	bool result = read_shard(shard, records);
 	if (!result) return false;
@@ -168,10 +158,7 @@ bool Worker::handleMapShard(
 		mapper->map(record);
 	}
 
-	return writeMapperResults(mapper, request,
-		result_files);
-
-	return true;
+	return writeMapperResults(mapper, request, result_files);
 }
 
 inline void close_open_files(std::unordered_map<std::string, FILE *> & open_files)
@@ -181,8 +168,7 @@ inline void close_open_files(std::unordered_map<std::string, FILE *> & open_file
 	}
 }
 
-bool Worker::writeMapperResults(
-	std::shared_ptr<BaseMapper> mapper, const MapJobRequest *request,
+bool Worker::writeMapperResults(std::shared_ptr<BaseMapper> mapper, const MapJobRequest *request,
 	std::unordered_set<std::string> & result_files)
 {
 	auto & mapped_values = mapper->impl_->emitted_values_;
@@ -235,7 +221,6 @@ bool Worker::readFilesToReduce(const ReduceJobRequest *request, std::vector<key_
 	for (int i = 0; i < request->intermediate_files_size(); i++) {
 		filename = request->intermediate_files(i);
 		std::ifstream stream(filename);
-		printf("FILE NAME %s\n", filename.c_str());
 
 		while (std::getline(stream, line)) {
 			if (line.size() == 0) continue; // skip blank lines
@@ -246,7 +231,6 @@ bool Worker::readFilesToReduce(const ReduceJobRequest *request, std::vector<key_
 			}
 			std::string key = line.substr(0, space_pos);
 			std::string value = line.substr(space_pos + 1);
-			printf("-- job %s: key %s, val %s\n", request->key().c_str(), key.c_str(), value.c_str());
 			key_value_pairs.push_back(std::make_pair(key, value));
 		}
 	}
@@ -265,10 +249,11 @@ bool Worker::handleReduceKeyValuePairs(const ReduceJobRequest *request, std::vec
 
 	std::string cur_key = key_value_pairs.at(0).first;
 	std::vector<std::string> cur_values;
-	auto reducer = get_reducer_from_task_factory("cs6210");
+	auto reducer = get_reducer_from_task_factory(request->user_id());
 
 	
 	for (auto & pair: key_value_pairs) {
+		printf("-- job %s: key %s, val %s\n", request->key().c_str(), pair.first.c_str(), pair.second.c_str());
 		if (pair.first != cur_key) {
 			reducer->reduce(cur_key, cur_values);
 			cur_key = pair.first;

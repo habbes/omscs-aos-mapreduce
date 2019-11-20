@@ -18,6 +18,7 @@ message MapJobRequest {
     int32 n_output_files = 2;
     string output_dir = 3;
     int32 job_id = 4;
+    string user_id = 5;
 }
 
 
@@ -30,6 +31,7 @@ message ReduceJobRequest {
     string key = 1;
     repeated string intermediate_files = 2;
     string output_dir = 3;
+    string user_id = 4;
 }
 
 message ReduceJobReply {

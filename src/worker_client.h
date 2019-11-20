@@ -20,6 +20,9 @@ struct MapJob
 {
     int job_id;
     FileShard shard;
+    int n_output_files;
+    std::string output_dir;
+    std::string user_id;
 };
 
 struct ReduceJob
@@ -28,6 +31,7 @@ struct ReduceJob
     int n_output_files;
     std::string output_dir;
     std::vector<std::string> intermediate_files;
+    std::string user_id;
 };
 
 class WorkerClient {
@@ -36,7 +40,7 @@ public:
     WorkerStatus status();
     // when I defined the method with intermediate_files as vector reference type instead of pointer
     // I got errors when compiling the program, "undefined reference" to the function that was using it
-    bool executeMapJob(const MapJob & job, int n_output_files, const std::string & output_dir,
+    bool executeMapJob(const MapJob & job,
         std::vector<std::string> *intermediate_files);
     bool executeReduceJob(const ReduceJob & job, std::vector<std::string> *output_files);
 

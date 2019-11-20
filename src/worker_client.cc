@@ -22,8 +22,7 @@ WorkerStatus WorkerClient::status()
     return status_;
 }
 
-bool WorkerClient::executeMapJob(const MapJob & job, int n_output_files,
-    const std::string & output_dir, std::vector<std::string> *intermediate_files)
+bool WorkerClient::executeMapJob(const MapJob & job, std::vector<std::string> *intermediate_files)
 {
     auto & shard = job.shard;
     print_shard(shard, "Master: Executing map job");
@@ -34,8 +33,9 @@ bool WorkerClient::executeMapJob(const MapJob & job, int n_output_files,
     MapJobReply reply;
     
     request.set_job_id(job.job_id);
-    request.set_n_output_files(n_output_files);
-    request.set_output_dir(output_dir);
+    request.set_n_output_files(job.n_output_files);
+    request.set_output_dir(job.output_dir);
+    request.set_user_id(job.user_id);
     for (const auto & offset: shard.offsets) {
         auto request_offset = request.add_offsets();
         request_offset->set_file(offset.file);
@@ -75,6 +75,7 @@ bool WorkerClient::executeReduceJob(const ReduceJob & job, std::vector<std::stri
 
     request.set_key(std::to_string(job.job_id));
     request.set_output_dir(job.output_dir);
+    request.set_user_id(job.user_id);
     for (auto file: job.intermediate_files) {
         auto request_file = request.add_intermediate_files();
         *request_file = file;

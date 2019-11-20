@@ -14,6 +14,7 @@ WorkersPool::WorkersPool(const MapReduceSpec & spec)
     next_task_id_ = 1;
     n_output_files_ = spec.n_output_files;
     output_dir_ = spec.output_dir;
+    user_id_ = spec.user_id;
     for (const auto address : spec.worker_ipaddr_ports) {
         std::unique_ptr<WorkerClient> service(
             new WorkerClient(
@@ -27,7 +28,13 @@ WorkersPool::WorkersPool(const MapReduceSpec & spec)
 
 void WorkersPool::addMapTask(FileShard shard)
 {
-    MapJob task = { next_task_id_++, shard };
+    MapJob task = {
+        next_task_id_++,
+        shard,
+        n_output_files: n_output_files_,
+        output_dir: output_dir_,
+        user_id: user_id_
+    };
     print_shard(shard, "Master: Add map task");
     map_queue_.push(task);
 }
@@ -38,7 +45,7 @@ bool WorkersPool::runMapTasks()
         const auto task = map_queue_.front();
         map_queue_.pop();
         auto & worker = getNextWorker();
-        auto result = worker->executeMapJob(task, n_output_files_, output_dir_, &intermediate_files_);
+        auto result = worker->executeMapJob(task, &intermediate_files_);
         if (!result) {
             print_shard(task.shard, "Master: map task failed, requeing...");
             map_queue_.push(task);
@@ -94,6 +101,7 @@ void WorkersPool::prepareReduceJobs()
         job.job_id = i + 1;
         job.n_output_files = n_output_files_;
         job.output_dir = output_dir_;
+        job.user_id = user_id_;
         for (auto & file: intermediate_files_) {
             std::string file_key = std::to_string(i);
             std::string file_prefix = output_dir_ + std::string("/") + file_key;
