@@ -1,7 +1,8 @@
 #!/usr/bin/python3
 
 # this program verifies implementation of the map operation by checking
-# the output results (intermediate_files) of the mappers against the input files
+# the output results (intermediate_files and final result files) of the map reduce
+# counter program against the specified input files
 
 import os
 import sys
@@ -25,7 +26,7 @@ def count_words_from_input_files(input_dir, pattern):
             words.update(get_words_from_line(line))
     return words
 
-def count_words_from_output_files(output_dir, pattern):
+def count_words_from_output_files(output_dir, pattern, is_final):
     files = list(filter(lambda f: f.find(pattern) >= 0, os.listdir(output_dir)))
     keys = get_file_keys(files)
     # combine counts from files with the same key
@@ -40,7 +41,10 @@ def count_words_from_output_files(output_dir, pattern):
             lines = file.readlines()
         for line in lines:
             word, count = get_words_from_line(line.strip())
-            file_counter[word] += int(count)
+            if is_final:
+                file_counter[word] = int(count)
+            else:
+                file_counter[word] += 1
     return list(counters.values())
 
 def combine_word_counters(words_counters):
@@ -64,19 +68,20 @@ def test_word_counts_are_correct(input_words, output_word_lists):
     assert input_words == combined_output_words, "word counts do not match expected results"
 
 
-def run_tests(input_dir, input_pattern, output_dir, output_pattern):
+def run_tests(input_dir, input_pattern, output_dir, output_pattern, is_final):
     input_counter = count_words_from_input_files(input_dir, input_pattern)
-    output_counters = count_words_from_output_files(output_dir, output_pattern)
+    output_counters = count_words_from_output_files(output_dir, output_pattern, is_final)
 
     test_no_word_in_multiple_files(output_counters)
     test_word_counts_are_correct(input_counter, output_counters)
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 5:
-        print(f"USAGE: python3 {sys.argv[0]} <input_dir> <input_file_pattern> <output_dir> <output_file_pattern>")
+    if len(sys.argv) != 6:
+        print(f"USAGE: python3 {sys.argv[0]} <input_dir> <input_file_pattern> <output_dir> <output_pattern> <i|f>")
         sys.exit(1)
 
-    _, input_dir, input_pattern, output_dir, output_pattern = sys.argv
-    run_tests(input_dir, input_pattern, output_dir, output_pattern)
+    _, input_dir, input_pattern, output_dir, output_pattern, is_final = sys.argv
+    is_final = is_final == 'f'
+    run_tests(input_dir, input_pattern, output_dir, output_pattern, is_final)
     print("Map results tests passed!")
