@@ -255,12 +255,15 @@ bool Worker::handleReduceKeyValuePairs(const ReduceJobRequest *request, std::vec
 	for (auto & pair: key_value_pairs) {
 		printf("-- job %s: key %s, val %s\n", request->key().c_str(), pair.first.c_str(), pair.second.c_str());
 		if (pair.first != cur_key) {
+			printf("-- job %s: reducing key %s, val count %d\n", request->key().c_str(), cur_key.c_str(), (int) cur_values.size());
 			reducer->reduce(cur_key, cur_values);
 			cur_key = pair.first;
 			cur_values.clear();
 		}
 		cur_values.push_back(pair.second);
 	}
+	// reduce final key's values
+	reducer->reduce(cur_key, cur_values);
 
 	return writeReducerResults(reducer, request, output_file);
 }
@@ -269,9 +272,8 @@ bool Worker::writeReducerResults(std::shared_ptr<BaseReducer> reducer, const Red
 {
 	output_file = request->output_dir()
 		+ std::string("/")
-		+ "result_"
 		+ request->key()
-		+ ".txt";
+		+ "_result.txt";
 	
 	FILE *file = fopen(output_file.c_str(), "w");
 	if (!file) {

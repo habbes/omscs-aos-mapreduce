@@ -25,8 +25,8 @@ def count_words_from_input_files(input_dir, pattern):
             words.update(get_words_from_line(line))
     return words
 
-def count_words_from_output_files(output_dir):
-    files = list(filter(lambda f: f.endswith("_temp.txt"), os.listdir(output_dir)))
+def count_words_from_output_files(output_dir, pattern):
+    files = list(filter(lambda f: f.find(pattern) >= 0, os.listdir(output_dir)))
     keys = get_file_keys(files)
     # combine counts from files with the same key
     counters = {}
@@ -39,7 +39,8 @@ def count_words_from_output_files(output_dir):
         with open(os.path.join(output_dir, filename), "r") as file:
             lines = file.readlines()
         for line in lines:
-            file_counter[get_words_from_line(line.strip())[0]] += 1
+            word, count = get_words_from_line(line.strip())
+            file_counter[word] += int(count)
     return list(counters.values())
 
 def combine_word_counters(words_counters):
@@ -63,19 +64,19 @@ def test_word_counts_are_correct(input_words, output_word_lists):
     assert input_words == combined_output_words, "word counts do not match expected results"
 
 
-def run_tests(input_dir, input_pattern, output_dir):
+def run_tests(input_dir, input_pattern, output_dir, output_pattern):
     input_counter = count_words_from_input_files(input_dir, input_pattern)
-    output_counters = count_words_from_output_files(output_dir)
+    output_counters = count_words_from_output_files(output_dir, output_pattern)
 
     test_no_word_in_multiple_files(output_counters)
     test_word_counts_are_correct(input_counter, output_counters)
 
 
 if __name__ == '__main__':
-    if len(sys.argv) < 4:
-        print(f"USAGE: python3 {sys.argv[0]} <input_dir> <input_file_pattern> <output_dir>")
+    if len(sys.argv) != 5:
+        print(f"USAGE: python3 {sys.argv[0]} <input_dir> <input_file_pattern> <output_dir> <output_file_pattern>")
         sys.exit(1)
 
-    _, input_dir, pattern, output_dir = sys.argv
-    run_tests(input_dir, pattern, output_dir)
+    _, input_dir, input_pattern, output_dir, output_pattern = sys.argv
+    run_tests(input_dir, input_pattern, output_dir, output_pattern)
     print("Map results tests passed!")

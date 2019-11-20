@@ -98,14 +98,16 @@ void WorkersPool::prepareReduceJobs()
     ReduceJob job;
     for (int i = 0; i < n_output_files_; i++)
     {
-        job.job_id = i + 1;
+        job.job_id = i;
         job.n_output_files = n_output_files_;
         job.output_dir = output_dir_;
         job.user_id = user_id_;
+        job.intermediate_files.clear();
+        std::string file_key = std::to_string(i);
+        std::string file_prefix = output_dir_ + std::string("/") + file_key + std::string("_");
         for (auto & file: intermediate_files_) {
-            std::string file_key = std::to_string(i);
-            std::string file_prefix = output_dir_ + std::string("/") + file_key;
             if (file.find(file_prefix) == 0) {
+                printf("--- MAS: file for key %d: %s\n", i, file.c_str());
                 job.intermediate_files.push_back(file);
             }
         }
