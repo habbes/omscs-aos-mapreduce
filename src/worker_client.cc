@@ -1,5 +1,6 @@
 #include "worker_client.h"
 
+#include <functional>
 #include <grpcpp/grpcpp.h>
 
 #include "masterworker.pb.h"
@@ -11,22 +12,39 @@ using masterworker::MapJobReply;
 using masterworker::ReduceJobRequest;
 using masterworker::ReduceJobReply;
 
-WorkerClient::WorkerClient(std::shared_ptr<grpc::Channel> channel)
-    : stub_(Worker::NewStub(channel))
+WorkerClient::WorkerClient(std::shared_ptr<grpc::Channel> channel, std::string id)
+    : stub_(Worker::NewStub(channel)), id_(id)
 {
     status_ = WorkerStatus::AVAILABLE;
 }
-
+ 
 WorkerStatus WorkerClient::status()
 {
     return status_;
 }
 
-bool WorkerClient::executeMapJob(const MapJob & job, std::vector<std::string> *intermediate_files)
+void WorkerClient::setPending()
 {
+    status_ = WorkerStatus::PENDING;
+}
+
+bool WorkerClient::busy()
+{
+    return status_ == WorkerStatus::BUSY_MAP || status_== WorkerStatus::BUSY_REDUCE || status_ == WorkerStatus::PENDING;
+}
+
+bool WorkerClient::notWorking()
+{
+    return status_ == WorkerStatus::AVAILABLE || status_ == WorkerStatus::DEAD;
+}
+
+bool WorkerClient::executeMapJob(const MapJob & job, std::vector<std::string> *intermediate_files,
+    std::function<void(MapJobReply *reply)> reply_callback)
+{
+    status_ = WorkerStatus::BUSY_MAP;
+    printf("Worker %s status busy %d\n", id_.c_str(), status_);
     auto & shard = job.shard;
     print_shard(shard, "Master: Executing map job");
-    status_ = WorkerStatus::BUSY_MAP;
     
     grpc::ClientContext context;
     MapJobRequest request;
@@ -45,28 +63,28 @@ bool WorkerClient::executeMapJob(const MapJob & job, std::vector<std::string> *i
     
     grpc::Status request_status = stub_->ExecuteMapJob(&context, request, &reply);
 
-    status_ = WorkerStatus::AVAILABLE;
-
     if (!request_status.ok()) {
-        printf("----Task failed from Status\n");
         return false;
     }
 
     if (!reply.success()) {
-        printf("----Task failed from No Success\n");
         return false;
     }
 
-    for (int i = 0; i < reply.intermediate_files_size(); i++) {
-        intermediate_files->push_back(reply.intermediate_files(i));
-    }
+    reply_callback(&reply);
+
+    // for (int i = 0; i < reply.intermediate_files_size(); i++) {
+    //     intermediate_files->push_back(reply.intermediate_files(i));
+    // }
+
+    status_ = WorkerStatus::AVAILABLE;
+    printf("Worker status %s available %d\n", id_.c_str(), status_);
 
     return true;
 }
 
 bool WorkerClient::executeReduceJob(const ReduceJob & job, std::vector<std::string> * output_files)
 {
-    printf("Master: Executing reduce job %d\n", job.job_id);
     status_ = WorkerStatus::BUSY_REDUCE;
 
     grpc::ClientContext context;
@@ -79,24 +97,26 @@ bool WorkerClient::executeReduceJob(const ReduceJob & job, std::vector<std::stri
     for (auto file: job.intermediate_files) {
         auto request_file = request.add_intermediate_files();
         *request_file = file;
-        printf("FILE TO RED %s, %s\n", file.c_str(), request_file->c_str());
     }
     
     grpc::Status request_status = stub_->ExecuteReduceJob(&context, request, &reply);
 
-    status_ = WorkerStatus::AVAILABLE;
-
     if (!request_status.ok()) {
-        printf("---- Reduce Task failed from Status\n");
         return false;
     }
 
     if (!reply.success()) {
-        printf("----Reduce Task failed from No Success\n");
         return false;
     }
 
     output_files->push_back(reply.output_file());
 
+    status_ = WorkerStatus::AVAILABLE;
+
     return true;
+}
+
+std::string & WorkerClient::id()
+{
+    return id_;
 }
