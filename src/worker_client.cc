@@ -1,5 +1,6 @@
 #include "worker_client.h"
 
+#include <chrono>
 #include <functional>
 #include <grpcpp/grpcpp.h>
 
@@ -11,6 +12,8 @@ using masterworker::MapJobRequest;
 using masterworker::MapJobReply;
 using masterworker::ReduceJobRequest;
 using masterworker::ReduceJobReply;
+
+constexpr const int JOB_TIMEOUT_SECONDS = 30;
 
 WorkerClient::WorkerClient(std::shared_ptr<grpc::Channel> channel, std::string id)
     : stub_(Worker::NewStub(channel)), id_(id)
@@ -56,6 +59,9 @@ bool WorkerClient::executeMapJob(const MapJob & job,
     grpc::ClientContext context;
     MapJobRequest request;
     MapJobReply reply;
+
+    auto deadline = std::chrono::system_clock::now() + std::chrono::seconds(JOB_TIMEOUT_SECONDS);
+    context.set_deadline(deadline);
     
     request.set_job_id(job.job_id);
     request.set_n_output_files(job.n_output_files);

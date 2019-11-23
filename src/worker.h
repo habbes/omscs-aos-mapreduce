@@ -110,6 +110,7 @@ Status Worker::ExecuteMapJob(ServerContext *context, const MapJobRequest *reques
 	print_shard(shard, "Worker: received map job");
 	std::unordered_set<std::string> result_files;
 	bool result = handleMapShard(shard, request, result_files);
+
 	if (!result) {
 		print_shard(shard, "Worker: FAILED to read shard");
 		reply->set_success(false);
