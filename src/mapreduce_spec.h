@@ -38,6 +38,7 @@ inline bool read_mr_spec_from_config_file(const std::string& config_filename, Ma
 	while (std::getline(file, line)) {
 		if (line.size() == 0) continue; // ignore empty lines
 		if (line.at(0) == '#') continue; // ignore comment lines
+		if (line.at(0) == ';') continue;
 		auto boundary = line.find('=');
 		if (boundary == std::string::npos) continue; // ignore invalid key-val pair
 
@@ -71,5 +72,26 @@ inline bool read_mr_spec_from_config_file(const std::string& config_filename, Ma
 
 /* CS6210_TASK: validate the specification read from the config file */
 inline bool validate_mr_spec(const MapReduceSpec& mr_spec) {
+	if (mr_spec.input_files.size() == 0) {
+		return false;
+	}
+	if (mr_spec.map_kilobytes <= 0) {
+		return false;
+	}
+	if (mr_spec.n_output_files <= 0) {
+		return false;
+	}
+	if (mr_spec.user_id.size() == 0) {
+		return false;
+	}
+	if (mr_spec.worker_ipaddr_ports.size() == 0) {
+		return false;
+	}
+	if (mr_spec.n_workers <= 0) {
+		return false;
+	}
+	if (mr_spec.n_workers != mr_spec.worker_ipaddr_ports.size()) {
+		return false;
+	}
 	return true;
 }

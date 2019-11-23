@@ -51,6 +51,7 @@ public:
     bool acquireForJob();
     bool busy();
     bool notWorking();
+    void handleErrorStatus(grpc::Status & status);
 
 private:
 	std::unique_ptr<masterworker::Worker::Stub> stub_;

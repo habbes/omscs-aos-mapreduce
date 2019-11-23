@@ -51,7 +51,7 @@ bool WorkerClient::executeMapJob(const MapJob & job,
     status_ = WorkerStatus::BUSY_MAP;
     printf("Worker %s status busy %d\n", id_.c_str(), status_);
     auto & shard = job.shard;
-    print_shard(shard, "Master: Executing map job");
+    print_shard(shard, std::string("Master: ") + id_ + std::string(" executing map job"));
     
     grpc::ClientContext context;
     MapJobRequest request;
@@ -71,10 +71,13 @@ bool WorkerClient::executeMapJob(const MapJob & job,
     grpc::Status request_status = stub_->ExecuteMapJob(&context, request, &reply);
 
     if (!request_status.ok()) {
+        handleErrorStatus(request_status);
         return false;
     }
 
     if (!reply.success()) {
+        printf("Worker %s failed map task on reply success\n", id_.c_str());
+        status_ = WorkerStatus::AVAILABLE;
         return false;
     }
 
@@ -105,10 +108,12 @@ bool WorkerClient::executeReduceJob(const ReduceJob & job,
     grpc::Status request_status = stub_->ExecuteReduceJob(&context, request, &reply);
 
     if (!request_status.ok()) {
+        handleErrorStatus(request_status);
         return false;
     }
 
     if (!reply.success()) {
+        status_ = WorkerStatus::AVAILABLE;
         return false;
     }
 
@@ -122,4 +127,22 @@ bool WorkerClient::executeReduceJob(const ReduceJob & job,
 std::string & WorkerClient::id()
 {
     return id_;
+}
+
+void WorkerClient::handleErrorStatus(grpc::Status & status)
+{
+    printf("Worker %s failed map task on request status. Error message %s.\n",
+        id_.c_str(), status.error_message().c_str());
+    switch (status.error_code()) {
+        case grpc::StatusCode::DEADLINE_EXCEEDED:
+            status_ = WorkerStatus::DEAD;
+            printf("Worker %s failed due to deadline\n", id_.c_str());
+            break;
+        case grpc::StatusCode::UNAVAILABLE:
+            printf("Worker %s failed due to connectivity issue\n", id_.c_str());
+            status_ = WorkerStatus::DEAD;
+            break;
+        default:
+            status_ = WorkerStatus::AVAILABLE;
+    }
 }

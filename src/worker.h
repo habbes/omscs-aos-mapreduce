@@ -113,7 +113,7 @@ Status Worker::ExecuteMapJob(ServerContext *context, const MapJobRequest *reques
 	if (!result) {
 		print_shard(shard, "Worker: FAILED to read shard");
 		reply->set_success(false);
-		return Status::CANCELLED;
+		return Status::OK;
 	}
 
 	reply->set_success(true);
@@ -135,7 +135,7 @@ Status Worker::ExecuteReduceJob(ServerContext *context, const ReduceJobRequest *
 
 	if (!result) {
 		reply->set_success(false);
-		return Status::CANCELLED;
+		return Status::OK;
 	}
 	printf("Worker: completed reduce job %s, key val pairs %d, output %s\n",
 		request->key().c_str(), (int)key_value_pairs.size(), output_file.c_str());

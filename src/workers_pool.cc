@@ -147,8 +147,17 @@ void WorkersPool::handleReduceJobReply(ReduceJobReply *reply)
 
 std::shared_ptr<WorkerClient> WorkersPool::getNextWorker()
 {
+    // index is made static to remember the last
+    // service visited, and start visiting from the next
+    // one in the list to ensure a fair round-robin traversal
+    // also ensures that a worker that err'd on a task
+    // is not retried until all other available workers have
+    // been retried
+    static int last_index = 0;
     while (true) {
-        for (auto & service: services_) {
+        last_index = last_index % services_.size();
+        for (; last_index < services_.size(); last_index++) {
+            auto service = services_.at(last_index);
             if (service->acquireForJob()) {
                 return service;
             }
