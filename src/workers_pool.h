@@ -24,6 +24,10 @@ private:
     std::shared_ptr<WorkerClient> getNextWorker();
     bool areAllWorkersBusy();
     bool areAllWorkersDone();
+    template <typename T>
+    bool runTasks(std::queue<T> &queue,
+        std::function<void(std::shared_ptr<WorkerClient> worker, const T & task)> runTask,
+        std::function<void(void)> onComplete);
     void scheduleMapTask(std::shared_ptr<WorkerClient> worker, const MapJob & task);
     void scheduleReduceTask(std::shared_ptr<WorkerClient> worker, const ReduceJob & task);
     void handleReduceJobReply(masterworker::ReduceJobReply *reply);
