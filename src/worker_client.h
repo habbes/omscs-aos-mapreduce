@@ -44,11 +44,10 @@ public:
     // when I defined the method with intermediate_files as vector reference type instead of pointer
     // I got errors when compiling the program, "undefined reference" to the function that was using it
     bool executeMapJob(const MapJob & job,
-        std::vector<std::string> *intermediate_files,
         std::function<void(masterworker::MapJobReply *reply)> reply_callback);
     bool executeReduceJob(const ReduceJob & job, std::vector<std::string> *output_files);
     std::string & id();
-    void setPending();
+    bool acquireForJob();
     bool busy();
     bool notWorking();
 

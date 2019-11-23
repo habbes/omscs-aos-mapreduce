@@ -24,6 +24,7 @@ private:
     std::shared_ptr<WorkerClient> getNextWorker();
     bool areAllWorkersBusy();
     bool areAllWorkersDone();
+    void scheduleMapTask(std::shared_ptr<WorkerClient> service, const MapJob & task);
     
 
     std::vector<std::shared_ptr<WorkerClient>> services_;

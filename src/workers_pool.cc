@@ -46,13 +46,7 @@ void WorkersPool::addMapTask(FileShard shard)
 
 bool WorkersPool::runMapTasks()
 {
-    auto intermediate_files_ptr = &intermediate_files_;
-    auto cond_task_done_ptr = &cond_task_done_;
-    auto queue_lock_ptr = &queue_lock_;
-    auto map_queue_ptr = &map_queue_;
     auto complete = false;
-    auto this_ = this;
-    // auto handler = std::bind(&WorkersPool::handleMapJobReply, this);
     while (1) {
         {
             std::unique_lock<std::mutex> l(queue_lock_);
@@ -74,37 +68,29 @@ bool WorkersPool::runMapTasks()
             map_queue_.pop();
             auto worker = getNextWorker();
             
-            threadpool_->enqueue_task([worker, task, map_queue_ptr, intermediate_files_ptr, this_, queue_lock_ptr, cond_task_done_ptr]() {
-                auto result = worker->executeMapJob(task, intermediate_files_ptr,
-                    [this_](MapJobReply *reply) { this_->handleMapJobReply(reply); });
-                if (!result) {
-                    std::unique_lock<std::mutex> l(*queue_lock_ptr);
-                    print_shard(task.shard, "Master: map task failed, requeing...");
-                    map_queue_ptr->push(task);
-                } else {
-                    print_shard(task.shard, "Master: completed map task");
-                }
-                cond_task_done_ptr->notify_one();
-            });
+            threadpool_->enqueue_task([this, worker, task]() { this->scheduleMapTask(worker, task); });
         }
     }
-    // while (!map_queue_.empty()) {
-    //     const auto task = map_queue_.front();
-    //     map_queue_.pop();
-    //     auto worker = getNextWorker();
-    //     auto result = worker->executeMapJob(task, &intermediate_files_);
-    //     if (!result) {
-    //         print_shard(task.shard, "Master: map task failed, requeing...");
-    //         map_queue_.push(task);
-    //     } else {
-    //         print_shard(task.shard, "Master: completed map task");
-    //     }
-    // }
     printf("Master: Map tasks complete, intermediate files generated:\n");
     for (auto & file: intermediate_files_) {
         printf("file: %s\n", file.c_str());
     }
     return true;
+}
+
+void WorkersPool::scheduleMapTask(std::shared_ptr<WorkerClient> worker, const MapJob & task)
+{
+    auto result = worker->executeMapJob(task,
+        [this](MapJobReply *reply) {this->handleMapJobReply(reply); });
+
+    if (!result) {
+        std::unique_lock<std::mutex> l(queue_lock_);
+        print_shard(task.shard, "Master: map task failed, requeing...");
+        map_queue_.push(task);
+    } else {
+        print_shard(task.shard, "Master: completed map task");
+    }
+    cond_task_done_.notify_one();
 }
 
 bool WorkersPool::runReduceTasks()
@@ -132,8 +118,7 @@ std::shared_ptr<WorkerClient> WorkersPool::getNextWorker()
 {
     while (true) {
         for (auto & service: services_) {
-            if (service->status() == WorkerStatus::AVAILABLE) {
-                service->setPending();
+            if (service->acquireForJob()) {
                 return service;
             }
         }

@@ -23,9 +23,13 @@ WorkerStatus WorkerClient::status()
     return status_;
 }
 
-void WorkerClient::setPending()
+bool WorkerClient::acquireForJob()
 {
+    if (status_ != WorkerStatus::AVAILABLE) {
+        return false;
+    }
     status_ = WorkerStatus::PENDING;
+    return true;
 }
 
 bool WorkerClient::busy()
@@ -38,9 +42,12 @@ bool WorkerClient::notWorking()
     return status_ == WorkerStatus::AVAILABLE || status_ == WorkerStatus::DEAD;
 }
 
-bool WorkerClient::executeMapJob(const MapJob & job, std::vector<std::string> *intermediate_files,
+bool WorkerClient::executeMapJob(const MapJob & job,
     std::function<void(MapJobReply *reply)> reply_callback)
 {
+    if (status_ != WorkerStatus::PENDING) {
+        return false;
+    }
     status_ = WorkerStatus::BUSY_MAP;
     printf("Worker %s status busy %d\n", id_.c_str(), status_);
     auto & shard = job.shard;
@@ -72,10 +79,6 @@ bool WorkerClient::executeMapJob(const MapJob & job, std::vector<std::string> *i
     }
 
     reply_callback(&reply);
-
-    // for (int i = 0; i < reply.intermediate_files_size(); i++) {
-    //     intermediate_files->push_back(reply.intermediate_files(i));
-    // }
 
     status_ = WorkerStatus::AVAILABLE;
     printf("Worker status %s available %d\n", id_.c_str(), status_);
