@@ -45,7 +45,8 @@ public:
     // I got errors when compiling the program, "undefined reference" to the function that was using it
     bool executeMapJob(const MapJob & job,
         std::function<void(masterworker::MapJobReply *reply)> reply_callback);
-    bool executeReduceJob(const ReduceJob & job, std::vector<std::string> *output_files);
+    bool executeReduceJob(const ReduceJob & job,
+        std::function<void(masterworker::ReduceJobReply *reply)> reply_callback);
     std::string & id();
     bool acquireForJob();
     bool busy();

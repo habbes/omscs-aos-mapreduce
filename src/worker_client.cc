@@ -81,12 +81,12 @@ bool WorkerClient::executeMapJob(const MapJob & job,
     reply_callback(&reply);
 
     status_ = WorkerStatus::AVAILABLE;
-    printf("Worker status %s available %d\n", id_.c_str(), status_);
 
     return true;
 }
 
-bool WorkerClient::executeReduceJob(const ReduceJob & job, std::vector<std::string> * output_files)
+bool WorkerClient::executeReduceJob(const ReduceJob & job,
+    std::function<void(ReduceJobReply *reply)> reply_callback)
 {
     status_ = WorkerStatus::BUSY_REDUCE;
 
@@ -112,7 +112,7 @@ bool WorkerClient::executeReduceJob(const ReduceJob & job, std::vector<std::stri
         return false;
     }
 
-    output_files->push_back(reply.output_file());
+    reply_callback(&reply);
 
     status_ = WorkerStatus::AVAILABLE;
 
