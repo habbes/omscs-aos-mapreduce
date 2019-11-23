@@ -116,6 +116,9 @@ bool WorkersPool::runTasks(std::queue<T> &queue,
             const auto task = std::move(queue.front());
             queue.pop();
             auto worker = getNextWorker();
+            if (worker == nullptr) {
+                return false;
+            }
             std::function<void(void)> runner = [worker, task, runTask]() { runTask(worker, task); };
             threadpool_->enqueue_task(runner); 
         }
@@ -154,7 +157,7 @@ std::shared_ptr<WorkerClient> WorkersPool::getNextWorker()
     // is not retried until all other available workers have
     // been retried
     static int last_index = 0;
-    while (true) {
+    while (areSomeWorkersAlive()) {
         last_index = last_index % services_.size();
         for (; last_index < services_.size(); last_index++) {
             auto service = services_.at(last_index);
@@ -163,6 +166,7 @@ std::shared_ptr<WorkerClient> WorkersPool::getNextWorker()
             }
         }
     }
+    return nullptr;
     
 }
 
@@ -176,14 +180,14 @@ bool WorkersPool::areAllWorkersDone()
     return true;
 }
 
-bool WorkersPool::areAllWorkersBusy()
+bool WorkersPool::areSomeWorkersAlive()
 {
     for (auto & service: services_) {
-        if (service->notWorking()) {
-            return false;
+        if (service->status() != WorkerStatus::DEAD) {
+            return true;
         }
     }
-    return true;
+    return false;
 }
 
 void WorkersPool::prepareReduceJobs()

@@ -22,7 +22,7 @@ public:
     void handleMapJobReply(masterworker::MapJobReply *reply);
 private:
     std::shared_ptr<WorkerClient> getNextWorker();
-    bool areAllWorkersBusy();
+    bool areSomeWorkersAlive();
     bool areAllWorkersDone();
     template <typename T>
     bool runTasks(std::queue<T> &queue,
