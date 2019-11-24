@@ -81,6 +81,12 @@ inline bool validate_mr_spec(const MapReduceSpec& mr_spec) {
 	if (mr_spec.n_output_files <= 0) {
 		return false;
 	}
+	if (mr_spec.output_dir.empty()) {
+		return false;
+	}
+	if (mr_spec.output_dir.at(mr_spec.output_dir.size() - 1) == '/') {
+		return false;
+	}
 	if (mr_spec.user_id.size() == 0) {
 		return false;
 	}

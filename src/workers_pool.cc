@@ -19,9 +19,7 @@ WorkersPool::WorkersPool(const MapReduceSpec & spec)
     n_output_files_ = spec.n_output_files;
     output_dir_ = spec.output_dir;
     user_id_ = spec.user_id;
-    unsigned int num_threads = std::thread::hardware_concurrency();
-    if (num_threads < 4) num_threads = 4;
-    threadpool_ = std::unique_ptr<threadpool>(new threadpool(num_threads));
+    threadpool_ = std::unique_ptr<threadpool>(new threadpool(spec.n_workers));
     for (const auto address : spec.worker_ipaddr_ports) {
         std::unique_ptr<WorkerClient> service(
             new WorkerClient(
