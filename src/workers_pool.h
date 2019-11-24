@@ -20,6 +20,7 @@ public:
     bool runReduceTasks();
     void prepareReduceJobs();
     void handleMapJobReply(masterworker::MapJobReply *reply);
+    void cleanUp();
 private:
     std::shared_ptr<WorkerClient> getNextWorker();
     bool areSomeWorkersAlive();

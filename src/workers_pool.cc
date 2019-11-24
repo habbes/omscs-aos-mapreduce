@@ -8,6 +8,7 @@
 #include <grpcpp/channel.h>
 #include <grpcpp/create_channel.h>
 #include <grpcpp/security/credentials.h>
+#include <cstdlib>
 
 using masterworker::MapJobReply;
 using masterworker::ReduceJobReply;
@@ -18,7 +19,9 @@ WorkersPool::WorkersPool(const MapReduceSpec & spec)
     n_output_files_ = spec.n_output_files;
     output_dir_ = spec.output_dir;
     user_id_ = spec.user_id;
-    threadpool_ = std::unique_ptr<threadpool>(new threadpool(4));
+    unsigned int num_threads = std::thread::hardware_concurrency();
+    if (num_threads < 4) num_threads = 4;
+    threadpool_ = std::unique_ptr<threadpool>(new threadpool(num_threads));
     for (const auto address : spec.worker_ipaddr_ports) {
         std::unique_ptr<WorkerClient> service(
             new WorkerClient(
@@ -49,10 +52,7 @@ bool WorkersPool::runMapTasks()
     return runTasks<MapJob>(map_queue_,
         [this](std::shared_ptr<WorkerClient>worker, const MapJob & task) { this->scheduleMapTask(worker, task); },
         [this]() {
-            printf("Master: Map tasks complete, intermediate files generated:\n");
-            for (auto & file: this->intermediate_files_) {
-                printf("file: %s\n", file.c_str());
-            }
+            printf("Master: All mapper tasks complete...\n");
         });
 }
 
@@ -63,10 +63,8 @@ void WorkersPool::scheduleMapTask(std::shared_ptr<WorkerClient> worker, const Ma
 
     if (!result) {
         std::unique_lock<std::mutex> l(queue_lock_);
-        print_shard(task.shard, "Master: map task failed, requeing...");
+        print_shard(task.shard, "Master: mapper task failed, requeuing...");
         map_queue_.push(task);
-    } else {
-        print_shard(task.shard, "Master: completed map task");
     }
     cond_task_done_.notify_one();
 }
@@ -76,7 +74,6 @@ void WorkersPool::handleMapJobReply(MapJobReply *reply)
     {
         std::unique_lock<std::mutex> l(files_lock_);
         for (int i = 0; i < reply->intermediate_files_size(); i++) {
-            printf("Master: adding int file %s\n", reply->intermediate_files(i).c_str());
             intermediate_files_.push_back(reply->intermediate_files(i));
         }
     }
@@ -87,11 +84,30 @@ bool WorkersPool::runReduceTasks()
     return runTasks<ReduceJob>(reduce_queue_,
         [this](std::shared_ptr<WorkerClient>worker, const ReduceJob & task) { this->scheduleReduceTask(worker, task); },
         [this]() {
-            printf("Master: Reduce tasks complete, final result files generated:\n");
+            printf("Master: All reducer tasks complete. Output files:\n");
             for (auto & file: this->output_files_) {
                 printf("file: %s\n", file.c_str());
             }
         });
+}
+
+void WorkersPool::scheduleReduceTask(std::shared_ptr<WorkerClient> worker, const ReduceJob &task)
+{
+    auto result = worker->executeReduceJob(task,
+        [this](ReduceJobReply *reply) { this->handleReduceJobReply(reply); });
+
+    if (!result) {
+        std::unique_lock<std::mutex> l(queue_lock_);
+        printf("Master: reduce task %d failed, requeueing...\n", task.job_id);
+        reduce_queue_.push(task);
+    }
+    cond_task_done_.notify_one();
+}
+
+void WorkersPool::handleReduceJobReply(ReduceJobReply *reply)
+{
+    std::unique_lock<std::mutex> l(files_lock_);
+    output_files_.push_back(reply->output_file());
 }
 
 template<typename T>
@@ -100,6 +116,7 @@ bool WorkersPool::runTasks(std::queue<T> &queue,
     std::function<void(void)> onComplete)
 {
     auto complete = false;
+    T task;
     while (1) {
         {
             std::unique_lock<std::mutex> l(queue_lock_);
@@ -113,39 +130,24 @@ bool WorkersPool::runTasks(std::queue<T> &queue,
             if (complete) {
                 break;
             }
-            const auto task = std::move(queue.front());
+            task = std::move(queue.front());
             queue.pop();
-            auto worker = getNextWorker();
-            if (worker == nullptr) {
-                return false;
-            }
-            std::function<void(void)> runner = [worker, task, runTask]() { runTask(worker, task); };
-            threadpool_->enqueue_task(runner); 
         }
+        auto worker = getNextWorker();
+        if (worker == nullptr) {
+            return false;
+        }
+        std::function<void(void)> runner = [worker, task, runTask]() { runTask(worker, task); };
+        threadpool_->enqueue_task(runner);
     }
     onComplete();
     return true;
 }
 
-void WorkersPool::scheduleReduceTask(std::shared_ptr<WorkerClient> worker, const ReduceJob &task)
+void WorkersPool::cleanUp()
 {
-    auto result = worker->executeReduceJob(task,
-        [this](ReduceJobReply *reply) { this->handleReduceJobReply(reply); });
-    
-    if (!result) {
-        std::unique_lock<std::mutex> l(queue_lock_);
-        printf("Master: reduce task %d failed, requeueing...\n", task.job_id);
-        reduce_queue_.push(task);
-    } else {
-        printf("Master: completed reduce task %d\n", task.job_id);
-    }
-    cond_task_done_.notify_one();
-}
-
-void WorkersPool::handleReduceJobReply(ReduceJobReply *reply)
-{
-    std::unique_lock<std::mutex> l(files_lock_);
-    output_files_.push_back(reply->output_file());
+    std::string command = std::string("rm ") + output_dir_ + "/*temp*";
+    system(command.c_str());
 }
 
 std::shared_ptr<WorkerClient> WorkersPool::getNextWorker()

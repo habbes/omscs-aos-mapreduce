@@ -14,11 +14,15 @@ using masterworker::ReduceJobRequest;
 using masterworker::ReduceJobReply;
 
 constexpr const int JOB_TIMEOUT_SECONDS = 30;
+constexpr const int MAX_ALLOWED_TIMEOUTS = 2;
+constexpr const int MAX_ALLOWED_RPC_ERRORS = 10;
 
 WorkerClient::WorkerClient(std::shared_ptr<grpc::Channel> channel, std::string id)
     : stub_(Worker::NewStub(channel)), id_(id)
 {
     status_ = WorkerStatus::AVAILABLE;
+    num_timeouts_ = 0;
+    num_rpc_errors_ = 0;
 }
  
 WorkerStatus WorkerClient::status()
@@ -52,9 +56,7 @@ bool WorkerClient::executeMapJob(const MapJob & job,
         return false;
     }
     status_ = WorkerStatus::BUSY_MAP;
-    printf("Worker %s status busy %d\n", id_.c_str(), status_);
     auto & shard = job.shard;
-    print_shard(shard, std::string("Master: ") + id_ + std::string(" executing map job"));
     
     grpc::ClientContext context;
     MapJobRequest request;
@@ -82,14 +84,12 @@ bool WorkerClient::executeMapJob(const MapJob & job,
     }
 
     if (!reply.success()) {
-        printf("Worker %s failed map task on reply success\n", id_.c_str());
-        status_ = WorkerStatus::AVAILABLE;
+        handleNonSuccessReply();
         return false;
     }
 
     reply_callback(&reply);
-
-    status_ = WorkerStatus::AVAILABLE;
+    handleSuccess();
 
     return true;
 }
@@ -97,11 +97,17 @@ bool WorkerClient::executeMapJob(const MapJob & job,
 bool WorkerClient::executeReduceJob(const ReduceJob & job,
     std::function<void(ReduceJobReply *reply)> reply_callback)
 {
+    if (status_ != WorkerStatus::PENDING) {
+        return false;
+    }
     status_ = WorkerStatus::BUSY_REDUCE;
-
+    printf("Master: reduce job %d assigned to worker %s\n", job.job_id, id_.c_str());
     grpc::ClientContext context;
     ReduceJobRequest request;
     ReduceJobReply reply;
+
+    auto deadline = std::chrono::system_clock::now() + std::chrono::seconds(JOB_TIMEOUT_SECONDS);
+    context.set_deadline(deadline);
 
     request.set_key(std::to_string(job.job_id));
     request.set_output_dir(job.output_dir);
@@ -119,13 +125,12 @@ bool WorkerClient::executeReduceJob(const ReduceJob & job,
     }
 
     if (!reply.success()) {
-        status_ = WorkerStatus::AVAILABLE;
+        handleNonSuccessReply();
         return false;
     }
 
     reply_callback(&reply);
-
-    status_ = WorkerStatus::AVAILABLE;
+    handleSuccess();
 
     return true;
 }
@@ -137,18 +142,44 @@ std::string & WorkerClient::id()
 
 void WorkerClient::handleErrorStatus(grpc::Status & status)
 {
-    printf("Worker %s failed map task on request status. Error message %s.\n",
-        id_.c_str(), status.error_message().c_str());
+    printf("Master: Worker %s failed due to request error. Error code: %d. Error message: %s.\n",
+        id_.c_str(), status.error_code(), status.error_message().c_str());
     switch (status.error_code()) {
         case grpc::StatusCode::DEADLINE_EXCEEDED:
-            status_ = WorkerStatus::DEAD;
-            printf("Worker %s failed due to deadline\n", id_.c_str());
+            num_timeouts_++;
+            if (num_timeouts_ >= MAX_ALLOWED_TIMEOUTS) {
+                printf("Master: Worker %s failed due to deadline. Marked as dead.\n", id_.c_str());
+                status_ = WorkerStatus::DEAD;
+            } else {
+                printf("Master: Worker %s failed due to deadline\n", id_.c_str());
+                status_ = WorkerStatus::AVAILABLE;
+            }
             break;
         case grpc::StatusCode::UNAVAILABLE:
-            printf("Worker %s failed due to connectivity issue\n", id_.c_str());
+            printf("Master: Worker %s failed due to connectivity issue. Marked as dead.\n", id_.c_str());
             status_ = WorkerStatus::DEAD;
             break;
         default:
-            status_ = WorkerStatus::AVAILABLE;
+            num_rpc_errors_++;
+            if (num_rpc_errors_ >= MAX_ALLOWED_RPC_ERRORS) {
+                printf("Master: Worker %s exceeded allowed RPC errors. Marked as dead.\n", id_.c_str());
+                status_ = WorkerStatus::DEAD;
+            }
+            else {
+                status_ = WorkerStatus::AVAILABLE;
+            }
     }
+}
+
+void WorkerClient::handleNonSuccessReply()
+{
+    printf("Master: Worker %s failed task.", id_.c_str());
+    status_ = WorkerStatus::AVAILABLE;
+}
+
+void WorkerClient::handleSuccess()
+{
+    num_timeouts_ = 0;
+    num_rpc_errors_ = 0;
+    status_ = WorkerStatus::AVAILABLE;
 }

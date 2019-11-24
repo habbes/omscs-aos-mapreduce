@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-# this program verifies implementation of the map operation by checking
+# this program verifies the MapReduce implementation by checking
 # the output results (intermediate_files and final result files) of the map reduce
 # counter program against the specified input files
 
@@ -40,7 +40,10 @@ def count_words_from_output_files(output_dir, pattern, is_final):
         with open(os.path.join(output_dir, filename), "r") as file:
             lines = file.readlines()
         for line in lines:
-            word, count = get_words_from_line(line.strip())
+            try:
+                word, count = get_words_from_line(line.strip())
+            except:
+                assert False, f"Failed to get words from line: {line}"
             if is_final:
                 file_counter[word] = int(count)
             else:
@@ -84,4 +87,4 @@ if __name__ == '__main__':
     _, input_dir, input_pattern, output_dir, output_pattern, is_final = sys.argv
     is_final = is_final == 'f'
     run_tests(input_dir, input_pattern, output_dir, output_pattern, is_final)
-    print("Map results tests passed!")
+    print("MapReduce counter results tests passed!")

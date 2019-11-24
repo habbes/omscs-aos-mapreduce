@@ -5,6 +5,7 @@
 #include <cstring>
 #include <algorithm>
 #include <numeric>
+#include <string>
 
 class UserMapper : public BaseMapper {
 
@@ -12,11 +13,12 @@ class UserMapper : public BaseMapper {
 		virtual void map(const std::string& input_line) override {
 			char * c_input = new char [input_line.length()+1];
 			std::strcpy (c_input, input_line.c_str());
-			static const char* delims = " ,.\"'";
-			char *start = strtok (c_input, delims);
+			static const char* delims = " ,.\"'\r";
+			char *start, *save_pointer;
+				start = strtok_r (c_input, delims, &save_pointer);
 			while (start != NULL) {
 				emit(start, "1");
-			    start = strtok (NULL, delims);
+				start = strtok_r (nullptr, delims, &save_pointer);
 			}
 			delete[] c_input;
 		}

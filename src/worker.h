@@ -91,7 +91,7 @@ bool Worker::run() {
 	printf("Worker listening on %s\n", address_.c_str());
 
 	server->Wait();
-	printf("Worker %s: done\n", address_.c_str());
+	printf("Worker %s: is done\n", address_.c_str());
 
 	return true;
 }
@@ -107,12 +107,12 @@ Status Worker::ExecuteMapJob(ServerContext *context, const MapJobRequest *reques
 			.stop = offset.stop()
 		});
 	}
-	print_shard(shard, "Worker: received map job");
+	print_shard(shard, std::string("Worker ") + address_ + ": received map job");
 	std::unordered_set<std::string> result_files;
 	bool result = handleMapShard(shard, request, result_files);
 
 	if (!result) {
-		print_shard(shard, "Worker: FAILED to read shard");
+		print_shard(shard, std::string("Worker ") + address_ + ": FAILED to read shard");
 		reply->set_success(false);
 		return Status::OK;
 	}
@@ -127,7 +127,7 @@ Status Worker::ExecuteMapJob(ServerContext *context, const MapJobRequest *reques
 
 Status Worker::ExecuteReduceJob(ServerContext *context, const ReduceJobRequest *request, ReduceJobReply *reply)
 {
-	printf("Worker: received reduce job %s\n", request->key().c_str());
+	printf("Worker %s: received reduce job %s\n", address_.c_str(), request->key().c_str());
 	std::vector<key_value_pair_t> key_value_pairs;
 	std::string output_file;
 
@@ -136,13 +136,13 @@ Status Worker::ExecuteReduceJob(ServerContext *context, const ReduceJobRequest *
 
 	if (!result) {
 		reply->set_success(false);
+		printf("Worker %s: failed reduce job %s\n", address_.c_str(), request->key().c_str());
 		return Status::OK;
 	}
-	printf("Worker: completed reduce job %s, key val pairs %d, output %s\n",
-		request->key().c_str(), (int)key_value_pairs.size(), output_file.c_str());
 
 	reply->set_output_file(output_file);
 	reply->set_success(true);
+	printf("Worker %s: completed reduce job %s\n", address_.c_str(), request->key().c_str());
 	return Status::OK;
 }
 

@@ -30,7 +30,6 @@ void threadpool::shutdown()
 
 void threadpool::thread_loop(int i)
 {
-    printf("Thread %d started\n", i);
     std::function<void(void)> task;
     while (1) {
         {
@@ -40,14 +39,12 @@ void threadpool::thread_loop(int i)
             }
             if (tasks_.empty()) {
                 // shutting down
-                printf("Thread %d is shutting down\n", i);
                 return;
             }
 
             task = std::move(tasks_.front());
             tasks_.pop();
         }
-        printf("Thread %d is executing a task\n", i);
         task();
     }
 }

@@ -52,9 +52,13 @@ public:
     bool busy();
     bool notWorking();
     void handleErrorStatus(grpc::Status & status);
+    void handleNonSuccessReply();
+    void handleSuccess();
 
 private:
 	std::unique_ptr<masterworker::Worker::Stub> stub_;
     WorkerStatus status_;
     std::string id_;
+    int num_timeouts_;
+    int num_rpc_errors_;
 };
